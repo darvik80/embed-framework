@@ -1,0 +1,28 @@
+idf_component_register(
+    SRCS
+        src/alicloud_credentials.cpp
+        src/alicloud_module.cpp
+        src/alicloud_service.cpp
+        src/message_id_generator.cpp
+        src/things_module.cpp
+        src/ota_module.cpp
+        src/ntp_module.cpp
+        src/remote_config_module.cpp
+        src/device_tags_module.cpp
+        src/device_log_module.cpp
+        src/device_network_status_module.cpp
+    INCLUDE_DIRS
+        include
+    REQUIRES
+        embed
+        embed_core
+        mqtt
+        json
+        esp_wifi
+        esp_https_ota
+        app_update
+        esp_http_client
+    PRIV_REQUIRES
+        mbedtls
+        hal
+)

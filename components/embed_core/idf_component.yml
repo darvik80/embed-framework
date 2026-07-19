@@ -1,0 +1,4 @@
+version: "1.0.0"
+description: Core services (WiFi, MQTT, Metrics) for the embed framework
+dependencies:
+    idf: ">=5.5"

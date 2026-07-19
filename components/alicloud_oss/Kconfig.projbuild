@@ -1,0 +1,23 @@
+menu "Alibaba Cloud OSS"
+
+    config EMBED_OSS_ACCESS_KEY_ID
+        string "Access Key ID"
+        default ""
+        help
+            Alibaba Cloud RAM Access Key ID with OSS read/write permissions.
+
+    config EMBED_OSS_ACCESS_KEY_SECRET
+        string "Access Key Secret"
+        default ""
+        help
+            Alibaba Cloud RAM Access Key Secret.
+
+    config EMBED_OSS_REGION
+        string "Region identifier (e.g. oss-cn-hangzhou)"
+        default "oss-cn-hangzhou"
+
+    config EMBED_OSS_BUCKET
+        string "Bucket name"
+        default ""
+
+endmenu

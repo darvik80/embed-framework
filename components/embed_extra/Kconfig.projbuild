@@ -1,0 +1,53 @@
+menu "Embed Extra — Camera & MJPEG"
+
+    choice EMBED_CAMERA_BOARD
+        prompt "Camera board pinout"
+        default EMBED_CAMERA_BOARD_FREENOVE_S3
+        config EMBED_CAMERA_BOARD_FREENOVE_S3
+            bool "FREENOVE ESP32-S3-WROOM CAM"
+        config EMBED_CAMERA_BOARD_AITHINKER
+            bool "AI-Thinker ESP32-CAM"
+    endchoice
+
+    config EMBED_CAMERA_XCLK_FREQ_HZ
+        int "XCLK frequency (Hz)"
+        default 10000000
+        help
+            Camera XCLK frequency. OV2640 typically works at 10-20 MHz.
+
+    config EMBED_CAMERA_JPEG_QUALITY
+        int "JPEG quality (1=best, 63=worst)"
+        range 1 63
+        default 10
+
+    config EMBED_CAMERA_FB_COUNT
+        int "Frame buffer count"
+        range 1 4
+        default 2
+        help
+            Number of DMA frame buffers. 2 enables double-buffering.
+
+    config EMBED_CAMERA_CAPTURE_INTERVAL_MS
+        int "Capture interval (ms)"
+        range 10 1000
+        default 50
+        help
+            Delay between successive captures. ~20 fps = 50 ms.
+
+    config EMBED_MJPEG_PORT
+        int "MJPEG HTTP server port"
+        range 1 65535
+        default 80
+
+    config EMBED_MJPEG_QUEUE_DEPTH
+        int "Frame queue depth (frames)"
+        range 1 8
+        default 2
+        help
+            Frames buffered for the HTTP sender. Shallow = lower latency.
+
+    config EMBED_MJPEG_STACK_SIZE
+        int "HTTP server task stack size (bytes)"
+        default 8192
+
+endmenu

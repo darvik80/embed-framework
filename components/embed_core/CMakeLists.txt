@@ -1,0 +1,22 @@
+idf_component_register(
+    SRCS
+        "src/wifi_service.cpp"
+        "src/mqtt_service.cpp"
+        "src/metrics_service.cpp"
+    INCLUDE_DIRS
+        "include"
+    REQUIRES
+        embed
+        esp_wifi
+        esp_netif
+        esp_event
+        nvs_flash
+        mqtt
+        esp_timer
+        esp_system
+        log
+        freertos
+    PRIV_REQUIRES
+        esp_partition
+        mbedtls
+)

@@ -1,0 +1,29 @@
+idf_component_register(
+    SRCS
+        "src/alicloud_oss.c"
+        "src/alicloud_oss_auth.cpp"
+        "src/alicloud_oss_client.c"
+        "src/alicloud_oss_default.c"
+        "src/alicloud_oss_response_parser.c"
+        "src/oss_service.cpp"
+    INCLUDE_DIRS
+        "include"
+        "src"
+    REQUIRES
+        embed
+        alicloud_common
+        esp-tls
+        mbedtls
+)
+set_source_files_properties(
+    src/alicloud_oss.c
+    src/alicloud_oss_client.c
+    src/alicloud_oss_default.c
+    src/alicloud_oss_response_parser.c
+    PROPERTIES COMPILE_OPTIONS "-std=gnu2x"
+)
+set_source_files_properties(
+    src/alicloud_oss_auth.cpp
+    src/oss_service.cpp
+    PROPERTIES COMPILE_OPTIONS "-std=gnu++23"
+)

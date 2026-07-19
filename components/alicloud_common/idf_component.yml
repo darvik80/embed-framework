@@ -1,0 +1,4 @@
+version: "1.0.0"
+description: "Alibaba Cloud common HTTP/URI/string utilities for ESP-IDF"
+dependencies:
+  idf: ">=5.5"

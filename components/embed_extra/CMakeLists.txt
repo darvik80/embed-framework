@@ -1,0 +1,16 @@
+idf_component_register(
+    SRCS
+        "src/camera_service.cpp"
+        "src/mjpeg_service.cpp"
+        "src/oss_upload_service.cpp"
+    INCLUDE_DIRS
+        "include"
+    REQUIRES
+        embed
+        esp_http_server
+        esp32-camera
+        freertos
+        log
+        heap
+        alicloud_oss
+)

@@ -1,0 +1,22 @@
+menu "Alibaba Cloud IoT"
+
+    config EMBED_ALICLOUD_PRODUCT_KEY
+        string "Product Key"
+        default ""
+        help
+            Alibaba Cloud IoT product key (ProductKey from the device certificate).
+
+    config EMBED_ALICLOUD_DEVICE_NAME
+        string "Device Name"
+        default ""
+        help
+            Alibaba Cloud IoT device name (DeviceName from the device certificate).
+
+    config EMBED_ALICLOUD_DEVICE_SECRET
+        string "Device Secret"
+        default ""
+        help
+            Alibaba Cloud IoT device secret used for HMAC-SHA256 credential generation.
+            Keep this value confidential.
+
+endmenu

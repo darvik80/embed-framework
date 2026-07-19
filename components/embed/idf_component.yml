@@ -1,0 +1,5 @@
+version: "1.0.0"
+description: Embedded framework for ESP-IDF with Service Registry, Signal-Slot messaging, and esp_event_loop integration
+url: https://github.com/embed-framework
+dependencies:
+    idf: ">=5.5"

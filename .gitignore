@@ -1,0 +1,27 @@
+# ESP-IDF build artifacts
+build/
+sdkconfig.old
+managed_components/
+dependencies.lock
+
+# IDE
+.idea/
+.vscode/
+cmake-build-*/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+Thumbs.db
+
+# Compiled binaries
+*.o
+*.a
+*.so
+*.dylib
+*.exe
+
+# Test artifacts
+test.txt
