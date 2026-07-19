@@ -1,0 +1,4 @@
+version: "1.0.0"
+description: "ThingsBoard core for ESP-IDF"
+dependencies:
+  idf: ">=5.5"
