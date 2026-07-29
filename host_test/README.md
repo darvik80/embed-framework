@@ -20,6 +20,6 @@ Requirements: CMake ≥ 3.16, C++20 compiler, network once (FetchContent pulls U
 |---------|-----------------------------------|
 | `embed::string` | `EventLoop` / `Signal` / `Slot` |
 | `embed::Message` concept | WiFi, MQTT, camera, OSS |
-| TB `TelemetryBuilder` / `TelemetryBatch` | Live MQTT publish to ThingsBoard |
+| TB `TelemetryBuilder` / `AttributeBuilder` | Live MQTT publish to ThingsBoard |
 
 Device Unity app remains under `test_apps/embed_unity`.

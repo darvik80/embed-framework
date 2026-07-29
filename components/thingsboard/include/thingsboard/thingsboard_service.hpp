@@ -4,12 +4,14 @@
 #include "embed_core/mqtt_service.hpp"
 #include "thingsboard/topics.hpp"
 #include "thingsboard/telemetry.hpp"
+#include "thingsboard/attributes.hpp"
 #include <cstdint>
 #include <string_view>
 
 namespace thingsboard {
 
 /// Shared attribute update pushed by the server (raw JSON payload).
+/// Parse with parseAttributeUpdate(payload).
 struct AttributeUpdate {
     embed::string<767> payload;
 };
@@ -24,6 +26,7 @@ struct RpcRequest {
 static_assert(embed::Message<RpcRequest>);
 
 /// Attribute request/response correlation payload (raw JSON).
+/// Parse with parseAttributeResponse(payload).
 struct AttributeResponse {
     uint32_t requestId = 0;
     embed::string<767> payload;
@@ -32,8 +35,8 @@ static_assert(embed::Message<AttributeResponse>);
 
 /// ThingsBoard device API over embed::MqttService.
 ///
-/// Telemetry helpers match
-/// https://thingsboard.io/docs/reference/mqtt-api/telemetry/
+/// Telemetry: https://thingsboard.io/docs/reference/mqtt-api/telemetry/
+/// Attributes: https://thingsboard.io/docs/reference/mqtt-api/attributes/
 class ThingsBoardService : public embed::Service {
 public:
     explicit ThingsBoardService(TopicStyle style = TopicStyle::Short);
@@ -43,17 +46,17 @@ public:
     void start() override;
     void stop() override;
 
-    /// Publish raw JSON telemetry (any of the three TB formats).
     int publishTelemetry(std::string_view json, int qos = 1);
-
-    /// Publish TelemetryBuilder result (simple KV or {ts,values}).
     int publishTelemetry(const TelemetryBuilder& builder, int qos = 1);
-
-    /// Publish TelemetryBatch array of {ts,values} objects.
     int publishTelemetry(const TelemetryBatch& batch, int qos = 1);
 
     int publishAttributes(std::string_view json, int qos = 1);
+    int publishAttributes(const AttributeBuilder& builder, int qos = 1);
+
     int requestAttributes(std::string_view keysJson, int qos = 1);
+    int requestAttributes(const AttributeRequestBuilder& request, int qos = 1);
+    int requestAttributes(const AttributeRequestBuilder& request, uint32_t& outRequestId, int qos = 1);
+
     int respondRpc(uint32_t requestId, std::string_view jsonPayload, int qos = 1);
 
     embed::Signal<AttributeUpdate> onAttributeUpdate;
@@ -77,6 +80,8 @@ private:
     void subscribeAll();
     void unsubscribeAll();
     void handleMessage(std::string_view topic, std::string_view payload);
+
+    uint32_t allocRequestId();
 };
 
 } // namespace thingsboard

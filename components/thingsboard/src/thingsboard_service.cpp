@@ -87,19 +87,94 @@ int ThingsBoardService::publishTelemetry(const TelemetryBatch& batch, int qos)
 
 int ThingsBoardService::publishAttributes(std::string_view json, int qos)
 {
-    if (!mqtt_) return -1;
+    if (!mqtt_ || json.empty()) return -1;
+    if (!mqtt_->isConnected()) {
+        ESP_LOGW(TAG, "publishAttributes: MQTT not connected");
+        return -1;
+    }
     const std::string topic = topics_.attributes();
-    return mqtt_->publish(topic.c_str(), json.data(), static_cast<int>(json.size()), qos);
+    int msgId = mqtt_->publish(topic.c_str(), json.data(), static_cast<int>(json.size()), qos);
+    if (msgId >= 0) {
+        ESP_LOGD(TAG, "attributes published (%d bytes) msgId=%d",
+                 static_cast<int>(json.size()), msgId);
+    }
+    return msgId;
+}
+
+int ThingsBoardService::publishAttributes(const AttributeBuilder& builder, int qos)
+{
+    if (builder.empty()) {
+        ESP_LOGW(TAG, "publishAttributes: builder empty");
+        return -1;
+    }
+    const std::string json = builder.build();
+    if (json.empty()) {
+        ESP_LOGE(TAG, "publishAttributes: build failed");
+        return -1;
+    }
+    return publishAttributes(std::string_view(json), qos);
+}
+
+uint32_t ThingsBoardService::allocRequestId()
+{
+    const uint32_t id = nextRequestId_++;
+    if (nextRequestId_ == 0) nextRequestId_ = 1;
+    return id;
 }
 
 int ThingsBoardService::requestAttributes(std::string_view keysJson, int qos)
 {
-    if (!mqtt_) return -1;
-    const uint32_t id = nextRequestId_++;
-    if (nextRequestId_ == 0) nextRequestId_ = 1;
+    if (!mqtt_ || keysJson.empty()) return -1;
+    if (!mqtt_->isConnected()) {
+        ESP_LOGW(TAG, "requestAttributes: MQTT not connected");
+        return -1;
+    }
+    const uint32_t id = allocRequestId();
     const std::string topic = topics_.attributesRequest(id);
-    return mqtt_->publish(topic.c_str(), keysJson.data(),
-                          static_cast<int>(keysJson.size()), qos);
+    int msgId = mqtt_->publish(topic.c_str(), keysJson.data(),
+                               static_cast<int>(keysJson.size()), qos);
+    if (msgId >= 0) {
+        ESP_LOGI(TAG, "attribute request id=%lu msgId=%d",
+                 static_cast<unsigned long>(id), msgId);
+    }
+    return msgId;
+}
+
+int ThingsBoardService::requestAttributes(const AttributeRequestBuilder& request, int qos)
+{
+    uint32_t unused = 0;
+    return requestAttributes(request, unused, qos);
+}
+
+int ThingsBoardService::requestAttributes(const AttributeRequestBuilder& request,
+                                          uint32_t& outRequestId,
+                                          int qos)
+{
+    if (request.empty()) {
+        ESP_LOGW(TAG, "requestAttributes: no keys");
+        return -1;
+    }
+    if (!mqtt_) return -1;
+    if (!mqtt_->isConnected()) {
+        ESP_LOGW(TAG, "requestAttributes: MQTT not connected");
+        return -1;
+    }
+
+    const std::string json = request.build();
+    if (json.empty()) {
+        ESP_LOGE(TAG, "requestAttributes: build failed");
+        return -1;
+    }
+
+    outRequestId = allocRequestId();
+    const std::string topic = topics_.attributesRequest(outRequestId);
+    int msgId = mqtt_->publish(topic.c_str(), json.data(),
+                               static_cast<int>(json.size()), qos);
+    if (msgId >= 0) {
+        ESP_LOGI(TAG, "attribute request id=%lu payload=%s",
+                 static_cast<unsigned long>(outRequestId), json.c_str());
+    }
+    return msgId;
 }
 
 int ThingsBoardService::respondRpc(uint32_t requestId, std::string_view jsonPayload, int qos)
@@ -187,6 +262,9 @@ void ThingsBoardService::handleMessage(std::string_view topic, std::string_view 
         AttributeResponse res{};
         res.requestId = Topics::parseTrailingId(topic);
         res.payload.assign(payload.data(), payload.size());
+        ESP_LOGI(TAG, "attribute response id=%lu len=%u",
+                 static_cast<unsigned long>(res.requestId),
+                 static_cast<unsigned>(res.payload.size()));
         onAttributeResponse.emit(res);
         return;
     }
@@ -194,6 +272,8 @@ void ThingsBoardService::handleMessage(std::string_view topic, std::string_view 
     if (Topics::isAttributeUpdate(topic)) {
         AttributeUpdate upd{};
         upd.payload.assign(payload.data(), payload.size());
+        ESP_LOGI(TAG, "shared attribute update len=%u",
+                 static_cast<unsigned>(upd.payload.size()));
         onAttributeUpdate.emit(upd);
         return;
     }
