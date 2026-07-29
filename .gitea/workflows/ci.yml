@@ -1,0 +1,100 @@
+# Gitea Actions (compatible with GitHub Actions syntax / act_runner)
+# Place under .gitea/workflows — also mirrored in .github/workflows for portability.
+#
+# Runner requirements:
+#   - label matching runs-on (default: ubuntu-latest)
+#   - Docker support (job uses espressif/idf container)
+# Enable Actions in the Gitea repo settings and register an act_runner.
+
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  IDF_TARGET: esp32s3
+  # Pin to project IDF requirement (>=5.5). Override via repo Variables if needed.
+  IDF_IMAGE: espressif/idf:v5.5.1
+
+jobs:
+  unity-tests:
+    name: Build Unity tests
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:v5.5.1
+      options: --security-opt seccomp=unconfined
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build embed_unity
+        working-directory: test_apps/embed_unity
+        run: |
+          . /opt/esp/idf/export.sh
+          idf.py set-target "${IDF_TARGET}"
+          idf.py build
+
+      - name: Upload Unity build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: unity-embed-${{ env.IDF_TARGET }}
+          path: |
+            test_apps/embed_unity/build/*.bin
+            test_apps/embed_unity/build/flasher_args.json
+          if-no-files-found: warn
+
+  firmware:
+    name: Build firmware
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:v5.5.1
+      options: --security-opt seccomp=unconfined
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build project
+        run: |
+          . /opt/esp/idf/export.sh
+          idf.py set-target "${IDF_TARGET}"
+          idf.py build
+
+      - name: Upload firmware artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: firmware-${{ env.IDF_TARGET }}
+          path: |
+            build/embed-framework.bin
+            build/bootloader/bootloader.bin
+            build/partition_table/partition-table.bin
+            build/*.bin
+            build/flasher_args.json
+          if-no-files-found: error
+
+  firmware-ota:
+    name: Build firmware (OTA partitions)
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:v5.5.1
+      options: --security-opt seccomp=unconfined
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build with partitions_ota.csv
+        run: |
+          . /opt/esp/idf/export.sh
+          idf.py set-target "${IDF_TARGET}"
+          idf.py -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.ota" build
+
+      - name: Upload OTA firmware artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: firmware-ota-${{ env.IDF_TARGET }}
+          path: |
+            build/*.bin
+            build/flasher_args.json
+          if-no-files-found: error
