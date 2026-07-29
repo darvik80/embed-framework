@@ -61,9 +61,9 @@ public:
     /// Respond to a server-side RPC (two-way).
     int respondRpc(uint32_t requestId, std::string_view jsonPayload, int qos = 1);
 
-    Signal<AttributeUpdate> onAttributeUpdate;
-    Signal<RpcRequest> onRpcRequest;
-    Signal<AttributeResponse> onAttributeResponse;
+    embed::Signal<AttributeUpdate> onAttributeUpdate;
+    embed::Signal<RpcRequest> onRpcRequest;
+    embed::Signal<AttributeResponse> onAttributeResponse;
 
 private:
     embed::MqttService* mqtt_ = nullptr;

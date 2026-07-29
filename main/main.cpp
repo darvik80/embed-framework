@@ -262,7 +262,11 @@ extern "C" void app_main() {
     static auto tbCreds = thingsboard::ThingsBoardCredentials::createAccessToken(
         CONFIG_EMBED_THINGSBOARD_HOST,
         CONFIG_EMBED_THINGSBOARD_ACCESS_TOKEN,
-        CONFIG_EMBED_THINGSBOARD_USE_TLS,
+#ifdef CONFIG_EMBED_THINGSBOARD_USE_TLS
+        true,
+#else
+        false,
+#endif
         static_cast<uint16_t>(CONFIG_EMBED_THINGSBOARD_PORT)
     );
 
