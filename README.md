@@ -78,13 +78,17 @@ With `CONFIG_EMBED_METRICS_ENABLE_STORAGE`, metrics use the `storage` **SPIFFS**
 
 ## Tests (Unity)
 
-See [docs/testing.md](docs/testing.md). Quick path:
+**Host (no flash)** — CI gate:
 
 ```bash
-cd test_apps/embed_unity
-idf.py set-target esp32s3
-idf.py build flash monitor
+cmake -S host_test -B host_test/build
+cmake --build host_test/build
+ctest --test-dir host_test/build --output-on-failure
 ```
+
+See [host_test/README.md](host_test/README.md) and [docs/testing.md](docs/testing.md).
+
+Device app (optional): `test_apps/embed_unity`.
 
 ## CI (Gitea)
 

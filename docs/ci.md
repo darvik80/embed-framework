@@ -2,33 +2,31 @@
 
 Workflows: [`.gitea/workflows/ci.yml`](../.gitea/workflows/ci.yml) (mirror under `.github/workflows/`).
 
-## Common failures on Gitea `act_runner`
-
-| Error | Cause | Fix in this repo |
-|-------|--------|------------------|
-| `exec: "node": not found` (126) | Job `container: espressif/idf` + `actions/checkout` | No job-level IDF container; checkout on host |
-| `Bind mount failed: '/workspace/...'` (125) | Nested `docker run -v $GITHUB_WORKSPACE` — path exists only inside the job container | [`tools/ci/idf-docker.sh`](../tools/ci/idf-docker.sh) uses `--volumes-from` |
-
-## How builds run
-
-1. `actions/checkout` on the runner (needs Node on the **job** environment).
-2. `tools/ci/idf-docker.sh` starts `espressif/idf:v5.5.1`:
-   - **Inside act_runner job container:** `--volumes-from <self>` + `-w $GITHUB_WORKSPACE/...`
-   - **Bare-metal runner:** `-v $GITHUB_WORKSPACE:/project`
-
 ## Jobs
 
-| Job | What |
-|-----|------|
-| `unity-tests` | `test_apps/embed_unity` |
-| `firmware` | main app, `partitions.csv` |
-| `firmware-ota` | `sdkconfig.defaults` + `sdkconfig.defaults.ota` |
+| Job | Needs | What |
+|-----|--------|------|
+| **`host-tests`** | cmake, g++, git | Builds & **runs** Unity in `host_test/` (no IDF, no flash) |
+| `firmware` | Docker + `tools/ci/idf-docker.sh` | Main firmware build (after host-tests) |
+| `firmware-ota` | same | OTA partition table build |
 
-## Runner setup
+`host-tests` is the fast quality gate. Firmware jobs `needs: host-tests`.
 
-1. Enable Actions on the repo.
-2. `act_runner` with Docker socket access.
-3. Label `ubuntu-latest`.
-4. Ability to pull `espressif/idf:v5.5.1`.
+## Common Gitea failures
 
-If `--volumes-from` still fails, check that the runner’s Docker mode allows containers to see sibling containers (`docker inspect $(cat /etc/hostname)` from a debug step).
+| Error | Fix |
+|-------|-----|
+| `exec: "node"` (126) | Don’t put `actions/checkout` inside `container: espressif/idf` |
+| `Bind mount failed: '/workspace/...'` (125) | Use `tools/ci/idf-docker.sh` (`--volumes-from`) |
+| `tools/ci/idf-docker.sh: No such file` | Commit & push `tools/ci/idf-docker.sh` |
+
+## Local
+
+```bash
+# Host tests (CI gate)
+cmake -S host_test -B host_test/build && cmake --build host_test/build
+ctest --test-dir host_test/build --output-on-failure
+
+# Firmware
+idf.py set-target esp32s3 && idf.py build
+```

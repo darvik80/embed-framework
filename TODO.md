@@ -36,7 +36,7 @@ Prioritized from architecture review (2026-07-29). Skills: `.cursor/skills/embed
 ## P4 — Docs & tests
 
 - [x] **README** + architecture / testing / OTA / CI docs + component READMEs for `embed` / `embed_core`.
-- [x] **Unity example** — `test_apps/embed_unity` + `components/embed/test/`.
-- [x] **Gitea CI** — `.gitea/workflows/ci.yml` (+ `.github` mirror).
-- [ ] Expand Unity coverage (StateMachine, ConnectionPool exhaustion).
+- [x] **Unity example** — `host_test/` (Linux, no flash) + `test_apps/embed_unity` + `components/embed/test/`.
+- [x] **Gitea CI** — `host-tests` job runs Unity; firmware jobs use `tools/ci/idf-docker.sh`.
+- [ ] Expand host coverage (types, StateMachine with mocks).
 - [ ] Device smoke — WiFi/MQTT SM, OTA dry-run.
