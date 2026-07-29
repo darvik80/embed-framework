@@ -60,7 +60,7 @@ void test_parse_attribute_response_values(void)
 
     double temp = 0;
     TEST_ASSERT_TRUE(thingsboard::attributeGetNumber(values.sharedJson, "targetTemperature", temp));
-    TEST_ASSERT_EQUAL_DOUBLE(24.0, temp);
+    TEST_ASSERT_EQUAL_FLOAT(24.0f, static_cast<float>(temp));
 
     bool enabled = false;
     TEST_ASSERT_TRUE(thingsboard::attributeGetBool(values.sharedJson, "enabled", enabled));
@@ -75,7 +75,7 @@ void test_parse_attribute_update_flat(void)
 
     double temp = 0;
     TEST_ASSERT_TRUE(thingsboard::attributeGetNumber(values.sharedJson, "targetTemperature", temp));
-    TEST_ASSERT_EQUAL_DOUBLE(26.0, temp);
+    TEST_ASSERT_EQUAL_FLOAT(26.0f, static_cast<float>(temp));
 }
 
 } // extern "C"
