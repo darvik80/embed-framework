@@ -43,6 +43,19 @@ target_include_directories(test_tb_telemetry PRIVATE
 )
 target_link_libraries(test_tb_telemetry PRIVATE unity cjson)
 
+add_executable(test_tb_attributes
+    test_tb_attributes.cpp
+    "${CMAKE_CURRENT_LIST_DIR}/../components/thingsboard/src/attributes.cpp"
+)
+target_include_directories(test_tb_attributes PRIVATE
+    "${CMAKE_CURRENT_LIST_DIR}/../components/thingsboard/include"
+    "${CMAKE_CURRENT_LIST_DIR}/../components/embed/include"
+    "${unity_SOURCE_DIR}/src"
+    "${cjson_SOURCE_DIR}"
+)
+target_link_libraries(test_tb_attributes PRIVATE unity cjson)
+
 enable_testing()
 add_test(NAME embed_primitives COMMAND test_embed_primitives)
 add_test(NAME tb_telemetry COMMAND test_tb_telemetry)
+add_test(NAME tb_attributes COMMAND test_tb_attributes)

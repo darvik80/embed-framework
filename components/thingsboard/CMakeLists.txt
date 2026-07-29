@@ -3,6 +3,7 @@ idf_component_register(
         "src/credentials.cpp"
         "src/topics.cpp"
         "src/telemetry.cpp"
+        "src/attributes.cpp"
         "src/thingsboard_service.cpp"
         "src/metrics_telemetry_bridge.cpp"
     INCLUDE_DIRS
