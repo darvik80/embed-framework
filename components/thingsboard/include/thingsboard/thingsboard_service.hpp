@@ -3,6 +3,7 @@
 #include "embed/embed.hpp"
 #include "embed_core/mqtt_service.hpp"
 #include "thingsboard/topics.hpp"
+#include "thingsboard/telemetry.hpp"
 #include <cstdint>
 #include <string_view>
 
@@ -18,7 +19,7 @@ static_assert(embed::Message<AttributeUpdate>);
 struct RpcRequest {
     uint32_t requestId = 0;
     embed::string<63> method;
-    embed::string<511> params;  ///< JSON object/array/string as sent by TB
+    embed::string<511> params;
 };
 static_assert(embed::Message<RpcRequest>);
 
@@ -31,14 +32,8 @@ static_assert(embed::Message<AttributeResponse>);
 
 /// ThingsBoard device API over embed::MqttService.
 ///
-/// Hybrid size: small registry object; Topics + request counter on stack.
-/// Connects to MqttService signals in start(). On MQTT connect, subscribes
-/// to attribute updates and server-side RPC (short or standard topics).
-///
-/// Usage:
-///   static auto creds = thingsboard::ThingsBoardCredentials::createAccessToken(...);
-///   registry.createService<embed::MqttService>(*creds);
-///   registry.createService<thingsboard::ThingsBoardService>();
+/// Telemetry helpers match
+/// https://thingsboard.io/docs/reference/mqtt-api/telemetry/
 class ThingsBoardService : public embed::Service {
 public:
     explicit ThingsBoardService(TopicStyle style = TopicStyle::Short);
@@ -48,17 +43,17 @@ public:
     void start() override;
     void stop() override;
 
-    /// Publish JSON telemetry object, e.g. {"temperature":25.1}
+    /// Publish raw JSON telemetry (any of the three TB formats).
     int publishTelemetry(std::string_view json, int qos = 1);
 
-    /// Publish client-side attributes JSON object.
+    /// Publish TelemetryBuilder result (simple KV or {ts,values}).
+    int publishTelemetry(const TelemetryBuilder& builder, int qos = 1);
+
+    /// Publish TelemetryBatch array of {ts,values} objects.
+    int publishTelemetry(const TelemetryBatch& batch, int qos = 1);
+
     int publishAttributes(std::string_view json, int qos = 1);
-
-    /// Request shared/client attributes. Response arrives via onAttributeResponse.
-    /// @param keysJson e.g. {"sharedKeys":"fw_title,fw_version","clientKeys":"lat"}
     int requestAttributes(std::string_view keysJson, int qos = 1);
-
-    /// Respond to a server-side RPC (two-way).
     int respondRpc(uint32_t requestId, std::string_view jsonPayload, int qos = 1);
 
     embed::Signal<AttributeUpdate> onAttributeUpdate;

@@ -10,7 +10,7 @@ ctest --test-dir host_test/build --output-on-failure
 
 See [host_test/README.md](../host_test/README.md).
 
-Covers `embed::string` and `embed::Message`.
+Covers `embed::string`, `embed::Message`, and ThingsBoard `TelemetryBuilder` / `TelemetryBatch`.
 
 ## Device Unity app
 
@@ -30,6 +30,6 @@ Same primitives on chip via ESP-IDF Unity (`TEST_CASE` / `unity_run_all_tests`).
 
 | Kind | Where |
 |------|--------|
-| Pure logic / POD / string | `host_test/` (+ optional mirror in `test_apps/embed_unity`) |
+| Pure logic / POD / string / TB telemetry JSON | `host_test/` (+ optional mirror in `test_apps/embed_unity`) |
 | Needs FreeRTOS / esp_event | `test_apps/embed_unity` or component `test/` on device / `linux` target |
 | Hardware | device smoke only |
