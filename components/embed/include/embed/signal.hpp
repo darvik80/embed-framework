@@ -3,6 +3,7 @@
 #include "embed/message.hpp"
 #include "embed/event_loop.hpp"
 #include "esp_event.h"
+#include "esp_log.h"
 #include <typeinfo>
 
 namespace embed {
@@ -43,8 +44,12 @@ public:
 
     /// Emit a message through the event loop.
     /// The message is copied into the event queue.
+    /// On queue overflow the message is dropped (see EMBED_EVENT_POST_TIMEOUT_MS).
     void emit(const M& msg) {
-        EventLoop::instance().post<M>(base_, kEventId, msg);
+        esp_err_t err = EventLoop::instance().post<M>(base_, kEventId, msg);
+        if (err != ESP_OK) {
+            ESP_LOGW("Signal", "post failed (%s) — message dropped", esp_err_to_name(err));
+        }
     }
 
     /// Get this signal type's event base (needed for slot connection).

@@ -59,7 +59,8 @@ menu "Embed Framework — MQTT Configuration"
         default 5000
         range 1000 300000
         help
-            Interval between MQTT reconnection attempts.
+            Interval between MQTT reconnection attempts driven by MqttService
+            state machine (esp-mqtt auto-reconnect is disabled).
 
     config EMBED_MQTT_KEEPALIVE
         int "MQTT keepalive interval (seconds)"
@@ -83,7 +84,8 @@ menu "Embed Framework — Metrics Configuration"
         bool "Collect storage partition metrics"
         default y
         help
-            Enable collection of flash storage partition metrics.
+            Enable collection of flash storage metrics for the "storage"
+            SPIFFS partition (uses esp_spiffs_info when mounted).
 
     config EMBED_METRICS_ENABLE_CPU
         bool "Collect CPU load metrics"

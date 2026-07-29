@@ -59,12 +59,21 @@ public:
             return connection_;
         }
 
-        // Store the instance handle in the connection pool
+        // Store the instance handle in the connection pool.
+        // If the pool is exhausted, unregister immediately — otherwise the
+        // handler stays registered with no Connection to clean it up.
         connection_ = ConnectionPool::instance().allocate(
             signal.eventBase(),
             Signal<M>::eventId(),
             instance
         );
+        if (!connection_.connected()) {
+            EventLoop::instance().unregisterHandler(
+                signal.eventBase(),
+                Signal<M>::eventId(),
+                instance
+            );
+        }
 
         return connection_;
     }

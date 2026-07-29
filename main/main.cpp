@@ -3,6 +3,7 @@
 #include "embed_core/wifi_service.hpp"
 #include "embed_core/metrics_service.hpp"
 #include "embed_core/mqtt_credentials.hpp"
+#include "thingsboard/credentials.h"
 #include "embed_core/mqtt_service.hpp"
 #include "embed_extra/camera_service.hpp"
 #include "embed_extra/mjpeg_service.hpp"

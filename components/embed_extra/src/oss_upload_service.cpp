@@ -1,5 +1,6 @@
 #include "embed_extra/oss_upload_service.hpp"
 #include "alicloud_oss/oss_service.hpp"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include <cstdio>
 #include <cstring>
@@ -24,7 +25,6 @@ void OssUploadService::start() {
         return;
     }
 
-    // Connect to CameraService
     auto* cam = ServiceRegistry::instance().getService<CameraService>();
     if (!cam) {
         ESP_LOGE(TAG, "CameraService not found in registry");
@@ -32,10 +32,9 @@ void OssUploadService::start() {
     }
     frameSlot_.connect(cam->onFrame);
 
-    // Start upload task
     xTaskCreatePinnedToCore(uploadTaskFunc, "oss_upload", 8192, this, 5, &uploadTask_, 1);
 
-    ESP_LOGI(TAG, "Started — uploading GRAYSCALE frames to OSS");
+    ESP_LOGI(TAG, "Started — uploading frames to OSS");
 }
 
 void OssUploadService::stop() {
@@ -47,10 +46,10 @@ void OssUploadService::stop() {
     }
 
     if (queue_) {
-        // Drain and free any pending frames
         CameraFrame frame;
         while (xQueueReceive(queue_, &frame, 0) == pdTRUE) {
-            free(frame.data);
+            // Queued frames are heap copies (fb == nullptr).
+            releaseCameraFrame(frame);
         }
         vQueueDelete(queue_);
         queue_ = nullptr;
@@ -64,26 +63,28 @@ void OssUploadService::stop() {
 void OssUploadService::onFrameReceived(const CameraFrame& msg, void* ctx) {
     auto* self = static_cast<OssUploadService*>(ctx);
     if (!self->queue_) {
-        free(msg.data);
+        releaseCameraFrame(msg);
         return;
     }
-    // Copy frame data for queue — original buffer is freed after copy
+
+    // Copy payload into SPIRAM for the upload task, then release the camera FB
+    // (or heap buffer) owned by the Signal message.
     auto* copy = static_cast<uint8_t*>(
         heap_caps_malloc(msg.len, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
     if (!copy) {
-        free(msg.data);
+        releaseCameraFrame(msg);
         ESP_LOGW(TAG, "SPIRAM alloc failed for frame copy — dropping");
         return;
     }
     memcpy(copy, msg.data, msg.len);
-    free(msg.data);
+    releaseCameraFrame(msg);
 
-    CameraFrame queued{copy, msg.len, msg.seq};
+    CameraFrame queued{copy, msg.len, msg.seq, nullptr};
     if (xQueueSend(self->queue_, &queued, 0) != pdTRUE) {
         free(copy);
         ESP_LOGD(TAG, "Frame queue full — dropped seq=%lu", (unsigned long)msg.seq);
     } else {
-        ESP_LOGI(TAG, "Frame sent seq=%lu", (unsigned long)msg.seq);
+        ESP_LOGI(TAG, "Frame queued seq=%lu", (unsigned long)msg.seq);
     }
 }
 
@@ -92,7 +93,6 @@ void OssUploadService::onFrameReceived(const CameraFrame& msg, void* ctx) {
 void OssUploadService::uploadTaskFunc(void* arg) {
     auto* self = static_cast<OssUploadService*>(arg);
 
-    // Get OssService referenceCameraService: SPIRAM
     auto* oss = ServiceRegistry::instance().getService<OssService>();
     if (!oss) {
         ESP_LOGE(TAG, "OssService not found in registry");
@@ -106,7 +106,6 @@ void OssUploadService::uploadTaskFunc(void* arg) {
             continue;
         }
 
-        // Generate OSS key: frames/<timestamp_ms>_<seq>.raw
         struct timeval tv;
         gettimeofday(&tv, nullptr);
         int64_t timestampMs = static_cast<int64_t>(tv.tv_sec) * 1000 + tv.tv_usec / 1000;
@@ -115,7 +114,6 @@ void OssUploadService::uploadTaskFunc(void* arg) {
         snprintf(key, sizeof(key), "frames/%lld_%lu.jpg",
                  (long long)timestampMs, (unsigned long)frame.seq);
 
-        // Upload grayscale frame as raw binary
         esp_err_t err = oss->putObject(key, frame.data, frame.len,
                                        "application/octet-stream", frame.seq);
 
@@ -125,10 +123,8 @@ void OssUploadService::uploadTaskFunc(void* arg) {
             ESP_LOGW(TAG, "Upload failed for %s: %s", key, esp_err_to_name(err));
         }
 
-        free(frame.data);
+        releaseCameraFrame(frame);
     }
-
-    vTaskDelete(nullptr);
 }
 
 } // namespace embed

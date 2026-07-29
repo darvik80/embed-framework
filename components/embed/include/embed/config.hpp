@@ -24,6 +24,13 @@
 #define EMBED_EVENT_TASK_STACK_SIZE 4096
 #endif
 
+// Max wait when posting to the embed event queue (ms).
+// Prevents producers from blocking forever if the queue is full.
+// Set to -1 to restore portMAX_DELAY (not recommended).
+#ifndef EMBED_EVENT_POST_TIMEOUT_MS
+#define EMBED_EVENT_POST_TIMEOUT_MS 100
+#endif
+
 #ifndef EMBED_THREAD_SAFE
 #define EMBED_THREAD_SAFE 1
 #endif
@@ -32,7 +39,7 @@
 // Messages larger than this will fail the Message concept.
 // Increase if your messages (e.g. MetricsCollected, MqttMessageReceived) need more.
 #ifndef EMBED_MAX_EVENT_DATA_SIZE
-#define EMBED_MAX_EVENT_DATA_SIZE 512
+#define EMBED_MAX_EVENT_DATA_SIZE 1024
 #endif
 
 // Maximum size of a service object in bytes.

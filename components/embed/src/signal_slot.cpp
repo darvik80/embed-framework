@@ -10,43 +10,83 @@ ConnectionPool& ConnectionPool::instance() {
     return pool;
 }
 
+ConnectionPool::ConnectionPool() {
+#if EMBED_THREAD_SAFE
+    mutex_ = xSemaphoreCreateMutex();
+#endif
+}
+
+#if EMBED_THREAD_SAFE
+void ConnectionPool::lock() const {
+    if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
+}
+
+void ConnectionPool::unlock() const {
+    if (mutex_) xSemaphoreGive(mutex_);
+}
+#endif
+
 Connection ConnectionPool::allocate(esp_event_base_t base,
                                     int32_t id,
                                     esp_event_handler_instance_t instance) {
+#if EMBED_THREAD_SAFE
+    lock();
+#endif
+    Connection result{};
     for (int i = 0; i < static_cast<int>(entries_.size()); ++i) {
         if (!entries_[i].active) {
             entries_[i] = {base, id, instance, true};
-            return Connection{i};
+            result = Connection{i};
+            break;
         }
     }
-    // Pool exhausted — return disconnected connection
-    return Connection{};
+#if EMBED_THREAD_SAFE
+    unlock();
+#endif
+    return result;
 }
 
 void ConnectionPool::release(int index) {
-    if (index < 0 || index >= static_cast<int>(entries_.size())) return;
-    if (!entries_[index].active) return;
+#if EMBED_THREAD_SAFE
+    lock();
+#endif
+    if (index < 0 || index >= static_cast<int>(entries_.size()) || !entries_[index].active) {
+#if EMBED_THREAD_SAFE
+        unlock();
+#endif
+        return;
+    }
 
     auto& entry = entries_[index];
-
-    // Unregister using the instance handle — this correctly removes
-    // the specific registration even if the same handler function
-    // was registered multiple times (e.g., multiple Slot<M> instances).
-    if (entry.instance) {
-        EventLoop::instance().unregisterHandler(entry.base, entry.id, entry.instance);
-    }
+    esp_event_base_t base = entry.base;
+    int32_t id = entry.id;
+    esp_event_handler_instance_t instance = entry.instance;
 
     entry.active = false;
     entry.base = nullptr;
     entry.id = 0;
     entry.instance = nullptr;
+#if EMBED_THREAD_SAFE
+    unlock();
+#endif
+
+    // Unregister outside the pool lock to avoid nesting with EventLoop work.
+    if (instance) {
+        EventLoop::instance().unregisterHandler(base, id, instance);
+    }
 }
 
 size_t ConnectionPool::count() const {
+#if EMBED_THREAD_SAFE
+    lock();
+#endif
     size_t n = 0;
     for (const auto& entry : entries_) {
         if (entry.active) ++n;
     }
+#if EMBED_THREAD_SAFE
+    unlock();
+#endif
     return n;
 }
 

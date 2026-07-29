@@ -4,6 +4,11 @@
 #include "esp_event.h"
 #include <array>
 
+#if EMBED_THREAD_SAFE
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+#endif
+
 namespace embed {
 
 /// RAII handle for a signal-slot connection.
@@ -62,7 +67,7 @@ public:
     size_t count() const;
 
 private:
-    ConnectionPool() = default;
+    ConnectionPool();
 
     struct Entry {
         esp_event_base_t base = nullptr;
@@ -72,6 +77,12 @@ private:
     };
 
     std::array<Entry, EMBED_MAX_CONNECTIONS> entries_{};
+
+#if EMBED_THREAD_SAFE
+    mutable SemaphoreHandle_t mutex_ = nullptr;
+    void lock() const;
+    void unlock() const;
+#endif
 };
 
 } // namespace embed

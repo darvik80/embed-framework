@@ -18,5 +18,6 @@ idf_component_register(
         freertos
     PRIV_REQUIRES
         esp_partition
+        spiffs
         mbedtls
 )

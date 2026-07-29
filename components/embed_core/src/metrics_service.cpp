@@ -11,6 +11,7 @@
 
 #if CONFIG_EMBED_METRICS_ENABLE_STORAGE
 #include "esp_partition.h"
+#include "esp_spiffs.h"
 #endif
 
 #include <sys/time.h>
@@ -169,15 +170,24 @@ void MetricsService::collectMemoryInfo(MetricsCollected& msg) {
 
 void MetricsService::collectStorageInfo(MetricsCollected& msg) {
 #if CONFIG_EMBED_METRICS_ENABLE_STORAGE
+    size_t total = 0;
+    size_t used = 0;
+    // Prefer live SPIFFS stats when the "storage" partition is mounted.
+    if (esp_spiffs_info("storage", &total, &used) == ESP_OK) {
+        msg.storageTotalBytes = total;
+        msg.storageUsedBytes = used;
+        return;
+    }
+
     const esp_partition_t* partition = esp_partition_find_first(
-        ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, "storage");
+        ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_SPIFFS, "storage");
 
     if (partition == nullptr) {
         return;
     }
 
     msg.storageTotalBytes = partition->size;
-    msg.storageUsedBytes = 0;  // Would need wear-levelling mount to determine
+    msg.storageUsedBytes = 0;  // partition present but FS not mounted
 #endif
 }
 
