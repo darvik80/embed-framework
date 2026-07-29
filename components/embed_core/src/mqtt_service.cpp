@@ -33,8 +33,8 @@ void MqttService::start() {
 }
 
 void MqttService::stop() {
+    cancelReconnectTimer();
     if (reconnectTimer_) {
-        esp_timer_stop(reconnectTimer_);
         esp_timer_delete(reconnectTimer_);
         reconnectTimer_ = nullptr;
     }
@@ -64,26 +64,30 @@ void MqttService::onWifiDisconnected(const WifiDisconnected& /*msg*/, void* ctx)
 void MqttService::onStateChanged(const TransitionTo<MqttConnectingState>&) {
     ESP_LOGI("MqttSM", "[%s] -> Connecting", currentStateName());
 
-    if (!mqttInitialized_) {
-        esp_err_t ret = initMqttClient();
-        if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to init MQTT client: %s", esp_err_to_name(ret));
-            handle(MqttErrorEvent{.error = ret});
-            return;
-        }
+    // With disable_auto_reconnect, esp-mqtt keeps the client in "started" state
+    // after a disconnect. Calling esp_mqtt_client_start() again fails with
+    // "Client has started" / ESP_FAIL and used to dump us into Error with no
+    // further retries. Always rebuild the client for a clean connect attempt.
+    destroyMqttClient();
+
+    esp_err_t ret = initMqttClient();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to init MQTT client: %s", esp_err_to_name(ret));
+        handle(MqttErrorEvent{.error = ret});
+        return;
     }
 
-    if (client_) {
-        esp_err_t ret = esp_mqtt_client_start(client_);
-        if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to start MQTT client: %s", esp_err_to_name(ret));
-            handle(MqttErrorEvent{.error = ret});
-        }
+    ret = esp_mqtt_client_start(client_);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start MQTT client: %s", esp_err_to_name(ret));
+        // Transient start failure — keep the SM retry loop instead of Error.
+        handle(MqttBrokerDisconnectedEvent{});
     }
 }
 
 void MqttService::onStateChanged(const TransitionTo<MqttConnectedState>&) {
     retryCount_ = 0;
+    cancelReconnectTimer();
     ESP_LOGI("MqttSM", "[%s] -> Connected", currentStateName());
 
     MqttConnected msg;
@@ -104,17 +108,7 @@ void MqttService::onStateChanged(const TransitionTo<MqttDisconnectedState>&) {
 
     if (retryCount_ <= CONFIG_EMBED_MQTT_MAX_RETRY) {
         ESP_LOGI(TAG, "Scheduling reconnect in %dms", CONFIG_EMBED_MQTT_RECONNECT_INTERVAL_MS);
-
-        if (!reconnectTimer_) {
-            const esp_timer_create_args_t args = {
-                .callback = reconnectTimerCallback,
-                .arg = this,
-                .dispatch_method = ESP_TIMER_TASK,
-                .name = "mqtt_reconnect",
-            };
-            esp_timer_create(&args, &reconnectTimer_);
-        }
-        esp_timer_start_once(reconnectTimer_, CONFIG_EMBED_MQTT_RECONNECT_INTERVAL_MS * 1000);
+        scheduleReconnectTimer();
     } else {
         ESP_LOGE(TAG, "Max retries (%d) reached", CONFIG_EMBED_MQTT_MAX_RETRY);
         handle(MqttErrorEvent{.error = ESP_ERR_TIMEOUT});
@@ -123,11 +117,14 @@ void MqttService::onStateChanged(const TransitionTo<MqttDisconnectedState>&) {
 
 void MqttService::onStateChanged(const TransitionTo<MqttIdleState>&) {
     ESP_LOGI("MqttSM", "[%s] -> Idle", currentStateName());
+    cancelReconnectTimer();
+    retryCount_ = 0;
     destroyMqttClient();
 }
 
 void MqttService::onStateChanged(const TransitionTo<MqttErrorState>&) {
     ESP_LOGI("MqttSM", "[%s] -> Error", currentStateName());
+    cancelReconnectTimer();
     if (std::holds_alternative<MqttConnectedState*>(getPrevState())) {
         onDisconnected.emit(MqttDisconnected{});
     }
@@ -139,6 +136,29 @@ void MqttService::onStateChanged(const Nothing&) {
 }
 
 // ── Reconnect timer ─────────────────────────────────────────────────────
+
+void MqttService::scheduleReconnectTimer()
+{
+    if (!reconnectTimer_) {
+        const esp_timer_create_args_t args = {
+            .callback = reconnectTimerCallback,
+            .arg = this,
+            .dispatch_method = ESP_TIMER_TASK,
+            .name = "mqtt_reconnect",
+        };
+        esp_timer_create(&args, &reconnectTimer_);
+    }
+    esp_timer_stop(reconnectTimer_);
+    esp_timer_start_once(reconnectTimer_,
+                         static_cast<uint64_t>(CONFIG_EMBED_MQTT_RECONNECT_INTERVAL_MS) * 1000ULL);
+}
+
+void MqttService::cancelReconnectTimer()
+{
+    if (reconnectTimer_) {
+        esp_timer_stop(reconnectTimer_);
+    }
+}
 
 void MqttService::reconnectTimerCallback(void* arg) {
     auto* self = static_cast<MqttService*>(arg);
@@ -203,12 +223,16 @@ esp_err_t MqttService::initMqttClient() {
 }
 
 void MqttService::destroyMqttClient() {
-    if (client_) {
-        esp_mqtt_client_stop(client_);
-        esp_mqtt_client_destroy(client_);
-        client_ = nullptr;
+    if (!client_) {
+        mqttInitialized_ = false;
+        return;
     }
+    // Clear handle first so in-flight event callbacks are ignored as stale.
+    esp_mqtt_client_handle_t dying = client_;
+    client_ = nullptr;
     mqttInitialized_ = false;
+    esp_mqtt_client_stop(dying);
+    esp_mqtt_client_destroy(dying);
 }
 
 // ── MQTT event handler ─────────────────────────────────────────────────
@@ -221,6 +245,13 @@ void MqttService::mqttEventHandler(void* arg, esp_event_base_t /*base*/,
 
 void MqttService::processMqttEvent(int32_t event_id, void* event_data) {
     auto* event = static_cast<esp_mqtt_event_handle_t>(event_data);
+
+    // destroyMqttClient() may leave in-flight events from the old handle;
+    // ignore them so a reconnect isn't aborted mid-Connecting.
+    if (!client_ || event->client != client_) {
+        ESP_LOGD(TAG, "Ignoring stale MQTT event %ld", static_cast<long>(event_id));
+        return;
+    }
 
     switch (event->event_id) {
     case MQTT_EVENT_CONNECTED:

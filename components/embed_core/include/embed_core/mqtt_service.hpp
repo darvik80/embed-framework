@@ -73,7 +73,7 @@ struct MqttDisconnectedState : State<
 > {};
 
 struct MqttErrorState : State<
-    On<MqttStartEvent, MqttIdleState>,
+    On<MqttStartEvent, MqttConnectingState>,
     On<MqttStopEvent, MqttIdleState>
 > {};
 
@@ -159,6 +159,8 @@ private:
     // Reconnect timer
     esp_timer_handle_t reconnectTimer_ = nullptr;
     static void reconnectTimerCallback(void* arg);
+    void scheduleReconnectTimer();
+    void cancelReconnectTimer();
 
     // WiFi integration (slots connected in start())
     Slot<WifiConnected> wifiConnectedSlot_{onWifiConnected, this};

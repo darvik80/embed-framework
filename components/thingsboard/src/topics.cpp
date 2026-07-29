@@ -35,12 +35,26 @@ std::string Topics::rpcRequestSubscribe() const
                                        : "v1/devices/me/rpc/request/+";
 }
 
+std::string Topics::rpcClientRequest(uint32_t requestId) const
+{
+    if (style_ == TopicStyle::Short) {
+        return std::format("v2/r/req/{}", requestId);
+    }
+    return std::format("v1/devices/me/rpc/request/{}", requestId);
+}
+
 std::string Topics::rpcResponse(uint32_t requestId) const
 {
     if (style_ == TopicStyle::Short) {
         return std::format("v2/r/res/{}", requestId);
     }
     return std::format("v1/devices/me/rpc/response/{}", requestId);
+}
+
+std::string Topics::rpcResponseSubscribe() const
+{
+    return style_ == TopicStyle::Short ? "v2/r/res/+"
+                                       : "v1/devices/me/rpc/response/+";
 }
 
 std::string Topics::claim() const
@@ -81,6 +95,12 @@ bool Topics::isRpcRequest(std::string_view topic)
 {
     return topic.starts_with("v2/r/req/") ||
            topic.find("/rpc/request/") != std::string_view::npos;
+}
+
+bool Topics::isRpcResponse(std::string_view topic)
+{
+    return topic.starts_with("v2/r/res/") ||
+           topic.find("/rpc/response/") != std::string_view::npos;
 }
 
 bool Topics::isAttributeResponse(std::string_view topic)

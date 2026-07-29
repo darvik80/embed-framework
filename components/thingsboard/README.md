@@ -5,6 +5,7 @@ ThingsBoard MQTT device API for embed-framework.
 - [Getting Connected](https://thingsboard.io/docs/reference/mqtt-api/getting-connected/)
 - [Telemetry](https://thingsboard.io/docs/reference/mqtt-api/telemetry/)
 - [Attributes](https://thingsboard.io/docs/reference/mqtt-api/attributes/)
+- [RPC](https://thingsboard.io/docs/reference/mqtt-api/rpc/)
 
 ## Features
 
@@ -15,8 +16,45 @@ ThingsBoard MQTT device API for embed-framework.
 | `TelemetryBuilder` / `TelemetryBatch` | Telemetry JSON |
 | `AttributeBuilder` / `AttributeRequestBuilder` | Client attrs + get-request |
 | `parseAttributeResponse` / `parseAttributeUpdate` | Parse replies / shared pushes |
+| `RpcBuilder` / `RpcReplyBuilder` | Client RPC requests + two-way replies |
 | `ThingsBoardService` | Publish / request / RPC + Signals |
 | `MetricsTelemetryBridge` | Metrics → telemetry |
+
+## RPC
+
+### Server-side (platform → device)
+
+Subscribe is automatic (`v2/r/req/+`). Handle `onRpcRequest` and reply with `respondRpc`:
+
+```cpp
+tb->onRpcRequest /* Slot */ ;
+// msg.method / msg.params / msg.requestId
+
+thingsboard::RpcReplyBuilder reply;
+reply.add("ok", true).add("value", 26);
+tb->respondRpc(msg.requestId, reply);
+// → v2/r/res/$request_id
+```
+
+### Client-side (device → platform)
+
+```cpp
+thingsboard::RpcBuilder req;
+req.method("getCurrentTime").paramsEmptyObject();
+uint32_t id = 0;
+tb->requestRpc(req, id);
+// → v2/r/req/$id ; reply on onRpcResponse (v2/r/res/+)
+```
+
+### Session limits
+
+Built-in client-side RPC for rate-limit self-throttling:
+
+```cpp
+uint32_t id = 0;
+tb->requestSessionLimits(id);
+// {"method":"getSessionLimits","params":{}}
+```
 
 ## Attributes
 
@@ -71,5 +109,5 @@ ctest --test-dir host_test/build --output-on-failure
 
 ## Next
 
-- Client-side RPC / claim
+- Device claim API
 - Protobuf payloads

@@ -5,6 +5,7 @@
 #include "thingsboard/topics.hpp"
 #include "thingsboard/telemetry.hpp"
 #include "thingsboard/attributes.hpp"
+#include "thingsboard/rpc.hpp"
 #include <cstdint>
 #include <string_view>
 
@@ -25,6 +26,13 @@ struct RpcRequest {
 };
 static_assert(embed::Message<RpcRequest>);
 
+/// Client-side RPC response from the platform (raw JSON body).
+struct RpcResponse {
+    uint32_t requestId = 0;
+    embed::string<767> payload;
+};
+static_assert(embed::Message<RpcResponse>);
+
 /// Attribute request/response correlation payload (raw JSON).
 /// Parse with parseAttributeResponse(payload).
 struct AttributeResponse {
@@ -37,6 +45,7 @@ static_assert(embed::Message<AttributeResponse>);
 ///
 /// Telemetry: https://thingsboard.io/docs/reference/mqtt-api/telemetry/
 /// Attributes: https://thingsboard.io/docs/reference/mqtt-api/attributes/
+/// RPC: https://thingsboard.io/docs/reference/mqtt-api/rpc/
 class ThingsBoardService : public embed::Service {
 public:
     explicit ThingsBoardService(TopicStyle style = TopicStyle::Short);
@@ -57,10 +66,20 @@ public:
     int requestAttributes(const AttributeRequestBuilder& request, int qos = 1);
     int requestAttributes(const AttributeRequestBuilder& request, uint32_t& outRequestId, int qos = 1);
 
+    /// Two-way reply to a server-side RPC request.
     int respondRpc(uint32_t requestId, std::string_view jsonPayload, int qos = 1);
+    int respondRpc(uint32_t requestId, const RpcReplyBuilder& reply, int qos = 1);
+
+    /// Client-side RPC: publish to v2/r/req/$id, reply arrives on onRpcResponse.
+    int requestRpc(std::string_view json, uint32_t& outRequestId, int qos = 1);
+    int requestRpc(const RpcBuilder& builder, uint32_t& outRequestId, int qos = 1);
+
+    /// Built-in client-side RPC: {"method":"getSessionLimits","params":{}}.
+    int requestSessionLimits(uint32_t& outRequestId, int qos = 1);
 
     embed::Signal<AttributeUpdate> onAttributeUpdate;
     embed::Signal<RpcRequest> onRpcRequest;
+    embed::Signal<RpcResponse> onRpcResponse;
     embed::Signal<AttributeResponse> onAttributeResponse;
 
 private:

@@ -13,6 +13,7 @@
 #include "thingsboard/thingsboard_service.hpp"
 #include "thingsboard/metrics_telemetry_bridge.hpp"
 #include "thingsboard/telemetry.hpp"
+#include "thingsboard/rpc.hpp"
 
 #include "esp_tls.h"
 #include "esp_log.h"
@@ -232,6 +233,85 @@ private:
     embed::Slot<embed::MqttMessageReceived> mqtt_message_slot_{onMqttMessage, this};
 };
 
+// ── TbRpcDemo ───────────────────────────────────────────────────────────
+
+/// Thin demo: handle server-side RPC and request session limits once connected.
+class TbRpcDemo : public embed::Service {
+public:
+    const char* serviceName() const override { return "TbRpcDemo"; }
+
+    void start() override {
+        auto& reg = embed::ServiceRegistry::instance();
+        tb_ = reg.getService<thingsboard::ThingsBoardService>();
+        mqtt_ = reg.getService<embed::MqttService>();
+        if (!tb_) {
+            ESP_LOGE("TbRpcDemo", "ThingsBoardService not found");
+            return;
+        }
+        rpc_req_slot_.connect(tb_->onRpcRequest);
+        rpc_res_slot_.connect(tb_->onRpcResponse);
+        if (mqtt_) {
+            mqtt_connected_slot_.connect(mqtt_->onConnected);
+        }
+        ESP_LOGI("TbRpcDemo", "RPC demo slots connected");
+    }
+
+    void stop() override {
+        rpc_req_slot_.disconnect();
+        rpc_res_slot_.disconnect();
+        mqtt_connected_slot_.disconnect();
+        tb_ = nullptr;
+        mqtt_ = nullptr;
+    }
+
+private:
+    static void onRpcRequest(const thingsboard::RpcRequest& msg, void* ctx) {
+        auto* self = static_cast<TbRpcDemo*>(ctx);
+        if (!self->tb_) return;
+
+        ESP_LOGI("TbRpcDemo", "server RPC id=%lu method=%s params=%s",
+                 static_cast<unsigned long>(msg.requestId),
+                 msg.method.c_str(), msg.params.c_str());
+
+        if (msg.method == "getTime") {
+            thingsboard::RpcReplyBuilder reply;
+            reply.add("currentTime", static_cast<int64_t>(esp_timer_get_time() / 1000));
+            self->tb_->respondRpc(msg.requestId, reply);
+            return;
+        }
+
+        // Echo unknown methods (two-way), matching TB mqtt-js sample behaviour.
+        thingsboard::RpcReplyBuilder reply;
+        reply.add("method", msg.method.c_str())
+             .addRawJson("params", msg.params.c_str());
+        self->tb_->respondRpc(msg.requestId, reply);
+    }
+
+    static void onRpcResponse(const thingsboard::RpcResponse& msg, void* /*ctx*/) {
+        ESP_LOGI("TbRpcDemo", "client RPC response id=%lu payload=%s",
+                 static_cast<unsigned long>(msg.requestId), msg.payload.c_str());
+    }
+
+    static void onMqttConnected(const embed::MqttConnected& /*msg*/, void* ctx) {
+        auto* self = static_cast<TbRpcDemo*>(ctx);
+        if (!self->tb_ || self->session_limits_requested_) return;
+        uint32_t reqId = 0;
+        if (self->tb_->requestSessionLimits(reqId) >= 0) {
+            self->session_limits_requested_ = true;
+            ESP_LOGI("TbRpcDemo", "requested getSessionLimits id=%lu",
+                     static_cast<unsigned long>(reqId));
+        }
+    }
+
+    thingsboard::ThingsBoardService* tb_ = nullptr;
+    embed::MqttService* mqtt_ = nullptr;
+    bool session_limits_requested_ = false;
+
+    embed::Slot<thingsboard::RpcRequest> rpc_req_slot_{onRpcRequest, this};
+    embed::Slot<thingsboard::RpcResponse> rpc_res_slot_{onRpcResponse, this};
+    embed::Slot<embed::MqttConnected> mqtt_connected_slot_{onMqttConnected, this};
+};
+
 // ── app_main ────────────────────────────────────────────────────────────
 
 extern "C" void app_main() {
@@ -311,6 +391,7 @@ extern "C" void app_main() {
             ? thingsboard::TopicStyle::Short
             : thingsboard::TopicStyle::Standard);
     registry.createService<thingsboard::MetricsTelemetryBridge>();
+    registry.createService<TbRpcDemo>();
     //registry.createService<alicloud::iot::AlicloudService>();
     //registry.createService<embed::CameraService>();
     //registry.createService<embed::MjpegService>();

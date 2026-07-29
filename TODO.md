@@ -21,7 +21,7 @@ Prioritized from architecture review (2026-07-29). Skills: `.cursor/skills/embed
 
 - [ ] **Camera Kconfig / stop sync** — _(frozen with camera)_
 - [x] **MQTT payload size** — `payload` capacity 767; `EMBED_MAX_EVENT_DATA_SIZE` 1024; truncation logged.
-- [ ] **ThingsBoard** — Access Token / Basic credentials + ThingsBoardService (telemetry, attributes, RPC). Client RPC / claim / protobuf TBD.
+- [x] **ThingsBoard** — Access Token / Basic credentials + ThingsBoardService (telemetry, attributes, server/client RPC, getSessionLimits). Claim / protobuf TBD.
 - [ ] **OssUploadService::stop** — _(frozen with camera)_
 - [x] **Metrics storage** — SPIFFS `storage` + `esp_spiffs_info` when mounted.
 

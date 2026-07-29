@@ -24,7 +24,12 @@ public:
     std::string attributesRequest(uint32_t requestId) const;
     std::string attributesResponseSubscribe() const;
     std::string rpcRequestSubscribe() const;
+    /// Publish target for client-side RPC request (device → platform).
+    std::string rpcClientRequest(uint32_t requestId) const;
+    /// Two-way reply topic for server-side RPC (device → platform).
     std::string rpcResponse(uint32_t requestId) const;
+    /// Subscribe for client-side RPC replies (platform → device).
+    std::string rpcResponseSubscribe() const;
     std::string claim() const;
 
     /// Extract trailing numeric id from .../req/$id or .../res/$id topics.
@@ -38,6 +43,9 @@ public:
 
     /// True if topic is a server-side RPC request.
     static bool isRpcRequest(std::string_view topic);
+
+    /// True if topic is a client-side RPC response from the platform.
+    static bool isRpcResponse(std::string_view topic);
 
     /// True if topic is an attribute request response.
     static bool isAttributeResponse(std::string_view topic);
