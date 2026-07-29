@@ -11,6 +11,8 @@
 #include "alicloud_iot/alicloud_service.hpp"
 #include "thingsboard/credentials.hpp"
 #include "thingsboard/thingsboard_service.hpp"
+#include "thingsboard/metrics_telemetry_bridge.hpp"
+#include "thingsboard/telemetry.hpp"
 
 #include "esp_tls.h"
 #include "esp_log.h"
@@ -308,6 +310,7 @@ extern "C" void app_main() {
     //    CONFIG_EMBED_THINGSBOARD_TOPIC_SHORT
     //        ? thingsboard::TopicStyle::Short
     //        : thingsboard::TopicStyle::Standard);
+    registry.createService<thingsboard::MetricsTelemetryBridge>();
     //registry.createService<alicloud::iot::AlicloudService>();
     registry.createService<embed::CameraService>();
     registry.createService<embed::MjpegService>();

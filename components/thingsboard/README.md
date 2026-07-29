@@ -2,68 +2,87 @@
 
 ThingsBoard MQTT device API for embed-framework.
 
-Docs: [Getting Connected](https://thingsboard.io/docs/reference/mqtt-api/getting-connected/)
+- [Getting Connected](https://thingsboard.io/docs/reference/mqtt-api/getting-connected/)
+- [Telemetry](https://thingsboard.io/docs/reference/mqtt-api/telemetry/)
 
-## Features (v1)
+## Features
 
 | Piece | Role |
 |-------|------|
 | `ThingsBoardCredentials` | Access Token + MQTT Basic → `embed::MqttCredentials` |
-| `Topics` | Short (`v2/...`) and Standard (`v1/devices/me/...`) topic helpers |
-| `ThingsBoardService` | Telemetry / attributes / attribute request / server RPC |
+| `Topics` | Short (`v2/...`) / Standard (`v1/devices/me/...`) |
+| `TelemetryBuilder` / `TelemetryBatch` | JSON payloads per Telemetry API |
+| `ThingsBoardService` | Publish telemetry/attributes, attr request, server RPC |
+| `MetricsTelemetryBridge` | `MetricsCollected` → TB telemetry |
 
-## Credentials
+## Telemetry
 
-**Access Token** (simplest):
+Topic: `v2/t` (short) or `v1/devices/me/telemetry`.
 
-```cpp
-static auto creds = thingsboard::ThingsBoardCredentials::createAccessToken(
-    "thingsboard.cloud",   // host, no scheme
-    "YOUR_ACCESS_TOKEN",
-    false,                 // TLS → mqtts:// :8883
-    0                      // port 0 = default
-);
-registry.createService<embed::MqttService>(*creds);
-```
-
-MQTT username = access token, password empty, clientId auto from Wi‑Fi MAC.
-
-**MQTT Basic**:
+### 1. Simple key-value (server timestamp)
 
 ```cpp
-static auto creds = thingsboard::ThingsBoardCredentials::createBasic(
-    "localhost", "user", "pass", "client-1", false, 1883);
+thingsboard::TelemetryBuilder b;
+b.add("temperature", 22.5).add("humidity", 61);
+tb->publishTelemetry(b);
+// → {"temperature":22.5,"humidity":61}
 ```
 
-## Service usage
+### 2. Client-side timestamp
 
 ```cpp
-registry.createService<embed::WifiService>();
-registry.createService<embed::MqttService>(*creds);
-auto* tb = registry.createService<thingsboard::ThingsBoardService>(
-    thingsboard::TopicStyle::Short);
-registry.startAll();
-
-// after connect:
-tb->publishTelemetry(R"({"temperature":25.1,"humidity":40})");
-tb->publishAttributes(R"({"firmwareVersion":"1.0.0"})");
+thingsboard::TelemetryBuilder b;
+b.timestampMs(1451649600512LL)
+ .add("temperature", 22.5)
+ .add("humidity", 61);
+tb->publishTelemetry(b);
+// → {"ts":1451649600512,"values":{"temperature":22.5,"humidity":61}}
 ```
 
-Signals: `onAttributeUpdate`, `onRpcRequest`, `onAttributeResponse`.
-
-Respond to RPC:
+### 3. Batch (array of ts+values)
 
 ```cpp
-tb->respondRpc(req.requestId, R"({"success":true})");
+thingsboard::TelemetryBatch batch;
+{
+    thingsboard::TelemetryBuilder e;
+    e.timestampMs(1451649600000LL).add("temperature", 22.5);
+    batch.add(std::move(e));
+}
+{
+    thingsboard::TelemetryBuilder e;
+    e.timestampMs(1451649601000LL).add("temperature", 22.7);
+    batch.add(std::move(e));
+}
+tb->publishTelemetry(batch);
 ```
 
-## Kconfig
+Supported value helpers: `double`, `int64_t`, `bool`, `const char*` / `string_view`, nested JSON via `addRawJson`.
 
-`menuconfig` → **Embed Framework — ThingsBoard**: host, access token, TLS, port, short topics.
+Raw publish still available: `tb->publishTelemetry(R"({"temperature":22.5})")`.
 
-## Next steps
+## Metrics bridge
 
-- Client-side RPC (`v2/r/req/$id`) helper
-- Device claiming (`v2/c`)
-- Optional Protobuf payloads
-- Metrics → telemetry bridge service
+```cpp
+registry.createService<embed::MetricsService>();
+registry.createService<thingsboard::ThingsBoardService>();
+registry.createService<thingsboard::MetricsTelemetryBridge>();
+```
+
+## Credentials / service wiring
+
+See earlier README sections — Access Token / MQTT Basic + `ThingsBoardService` in `startAll()`.
+
+## Host tests
+
+```bash
+cmake -S host_test -B host_test/build && cmake --build host_test/build
+ctest --test-dir host_test/build --output-on-failure
+```
+
+Includes `test_tb_telemetry` for builder/batch JSON shapes.
+
+## Next
+
+- Attributes API helpers
+- Client-side RPC / claim
+- Protobuf payloads

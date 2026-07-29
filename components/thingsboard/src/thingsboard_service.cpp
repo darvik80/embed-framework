@@ -43,9 +43,46 @@ void ThingsBoardService::stop()
 
 int ThingsBoardService::publishTelemetry(std::string_view json, int qos)
 {
-    if (!mqtt_) return -1;
+    if (!mqtt_ || json.empty()) return -1;
+    if (!mqtt_->isConnected()) {
+        ESP_LOGW(TAG, "publishTelemetry: MQTT not connected");
+        return -1;
+    }
     const std::string topic = topics_.telemetry();
-    return mqtt_->publish(topic.c_str(), json.data(), static_cast<int>(json.size()), qos);
+    int msgId = mqtt_->publish(topic.c_str(), json.data(), static_cast<int>(json.size()), qos);
+    if (msgId >= 0) {
+        ESP_LOGD(TAG, "telemetry published (%d bytes) msgId=%d",
+                 static_cast<int>(json.size()), msgId);
+    }
+    return msgId;
+}
+
+int ThingsBoardService::publishTelemetry(const TelemetryBuilder& builder, int qos)
+{
+    if (builder.empty()) {
+        ESP_LOGW(TAG, "publishTelemetry: builder empty");
+        return -1;
+    }
+    const std::string json = builder.build();
+    if (json.empty()) {
+        ESP_LOGE(TAG, "publishTelemetry: build failed");
+        return -1;
+    }
+    return publishTelemetry(std::string_view(json), qos);
+}
+
+int ThingsBoardService::publishTelemetry(const TelemetryBatch& batch, int qos)
+{
+    if (batch.empty()) {
+        ESP_LOGW(TAG, "publishTelemetry: batch empty");
+        return -1;
+    }
+    const std::string json = batch.build();
+    if (json.empty()) {
+        ESP_LOGE(TAG, "publishTelemetry: batch build failed");
+        return -1;
+    }
+    return publishTelemetry(std::string_view(json), qos);
 }
 
 int ThingsBoardService::publishAttributes(std::string_view json, int qos)
