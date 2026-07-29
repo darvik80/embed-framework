@@ -10,8 +10,11 @@ name: CI
 
 on:
   push:
-    branches: [*]
-  pull_request:
+    branches:
+    - 'master'
+    - 'feature*'     # Для веток вида feature-1, feature123
+    - 'feature/**'   # Для веток с слэшем: feature/login, feature/ui/button
+    pull_request:
   workflow_dispatch:
 
 env:
