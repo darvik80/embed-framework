@@ -304,16 +304,16 @@ extern "C" void app_main() {
     //registry.createService<BlinkService>(GPIO_NUM_2);
     //registry.createService<ButtonSimService>(GPIO_NUM_0);
     registry.createService<embed::WifiService>();
-    //registry.createService<embed::MetricsService>();
-    //registry.createService<embed::MqttService>(mqttCreds);
-    //registry.createService<thingsboard::ThingsBoardService>(
-    //    CONFIG_EMBED_THINGSBOARD_TOPIC_SHORT
-    //        ? thingsboard::TopicStyle::Short
-    //        : thingsboard::TopicStyle::Standard);
+    registry.createService<embed::MetricsService>();
+    registry.createService<embed::MqttService>(mqttCreds);
+    registry.createService<thingsboard::ThingsBoardService>(
+        CONFIG_EMBED_THINGSBOARD_TOPIC_SHORT
+            ? thingsboard::TopicStyle::Short
+            : thingsboard::TopicStyle::Standard);
     registry.createService<thingsboard::MetricsTelemetryBridge>();
     //registry.createService<alicloud::iot::AlicloudService>();
-    registry.createService<embed::CameraService>();
-    registry.createService<embed::MjpegService>();
+    //registry.createService<embed::CameraService>();
+    //registry.createService<embed::MjpegService>();
     //registry.createService<embed::OssService>();
     // OssUploadService disabled — MjpegService is the sole frame consumer
     //registry.createService<embed::OssUploadService>();
