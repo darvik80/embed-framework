@@ -256,7 +256,6 @@ extern "C" void app_main() {
     // 1. Initialize the event loop
     embed::EventLoop::instance().init();
     ESP_LOGI("Main", "event loop initialized");
-
     // 2. Create MQTT credentials (static — must outlive MqttService)
     //    Prefer ThingsBoard Access Token if configured; else Alicloud; else plain MQTT.
     static auto tbCreds = thingsboard::ThingsBoardCredentials::createAccessToken(
