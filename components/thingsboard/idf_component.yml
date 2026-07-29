@@ -1,4 +1,4 @@
 version: "1.0.0"
-description: "ThingsBoard core for ESP-IDF"
+description: "ThingsBoard MQTT device API for embed-framework"
 dependencies:
   idf: ">=5.5"

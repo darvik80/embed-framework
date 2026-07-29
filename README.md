@@ -60,6 +60,7 @@ Prefer POD and `embed::string<N>`. Do **not** put owning buffers (camera frames,
 | embed_extra | Camera / MJPEG / OSS upload |
 | alicloud_iot | Alink modules (things, OTA, NTP, …) |
 | alicloud_oss | OSS client + `OssService` |
+| [thingsboard](components/thingsboard/README.md) | ThingsBoard MQTT device API |
 
 ## MQTT reconnect
 

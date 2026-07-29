@@ -1,0 +1,37 @@
+menu "Embed Framework — ThingsBoard"
+
+    config EMBED_THINGSBOARD_HOST
+        string "ThingsBoard MQTT host"
+        default "thingsboard.cloud"
+        help
+            Hostname or IP of the ThingsBoard MQTT endpoint (no scheme).
+
+    config EMBED_THINGSBOARD_ACCESS_TOKEN
+        string "Device access token"
+        default ""
+        help
+            Access Token credentials: used as MQTT username (password empty).
+            Leave empty to disable ThingsBoard credential auto-wiring in demos.
+
+    config EMBED_THINGSBOARD_USE_TLS
+        bool "Use MQTT over TLS (mqtts / port 8883)"
+        default n
+        help
+            When enabled, broker URI uses mqtts:// and default port 8883.
+            Server verification uses the global CRT bundle in MqttService.
+
+    config EMBED_THINGSBOARD_PORT
+        int "MQTT port (0 = default 1883/8883)"
+        default 0
+        range 0 65535
+        help
+            Override MQTT port. 0 selects 1883 (plain) or 8883 (TLS).
+
+    config EMBED_THINGSBOARD_TOPIC_SHORT
+        bool "Use short topics (v2/...)"
+        default y
+        help
+            Prefer ThingsBoard 3.5+ short topics (v2/t, v2/a, v2/r/...).
+            Disable to use v1/devices/me/... topics.
+
+endmenu

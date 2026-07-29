@@ -1,34 +1,44 @@
-# Gitea Actions (compatible with GitHub Actions syntax / act_runner)
-# Mirrored from .gitea/workflows/ci.yml for runners that only scan .github/
+# Mirror of .gitea/workflows/ci.yml for GitHub / runners that only scan .github/
+#
+# Do NOT use job-level `container: espressif/idf` with actions/checkout —
+# the IDF image has no Node.js (exit 126). Build via docker run instead.
 
 name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches:
+      - master
+      - main
+      - "feature*"
+      - "feature/**"
   pull_request:
   workflow_dispatch:
 
 env:
   IDF_TARGET: esp32s3
+  IDF_IMAGE: espressif/idf:v5.5.1
 
 jobs:
   unity-tests:
     name: Build Unity tests
     runs-on: ubuntu-latest
-    container:
-      image: espressif/idf:v5.5.1
-      options: --security-opt seccomp=unconfined
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build embed_unity
-        working-directory: test_apps/embed_unity
+      - name: Build embed_unity (Docker IDF)
         run: |
-          . /opt/esp/idf/export.sh
-          idf.py set-target "${IDF_TARGET}"
-          idf.py build
+          docker run --rm \
+            -e IDF_TARGET="${IDF_TARGET}" \
+            -v "${GITHUB_WORKSPACE}:/project" \
+            -w /project/test_apps/embed_unity \
+            "${IDF_IMAGE}" \
+            bash -lc '
+              . /opt/esp/idf/export.sh
+              idf.py set-target "${IDF_TARGET}"
+              idf.py build
+            '
 
       - name: Upload Unity build artifacts
         uses: actions/upload-artifact@v3
@@ -42,46 +52,53 @@ jobs:
   firmware:
     name: Build firmware
     runs-on: ubuntu-latest
-    container:
-      image: espressif/idf:v5.5.1
-      options: --security-opt seccomp=unconfined
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build project
+      - name: Build project (Docker IDF)
         run: |
-          . /opt/esp/idf/export.sh
-          idf.py set-target "${IDF_TARGET}"
-          idf.py build
+          docker run --rm \
+            -e IDF_TARGET="${IDF_TARGET}" \
+            -v "${GITHUB_WORKSPACE}:/project" \
+            -w /project \
+            "${IDF_IMAGE}" \
+            bash -lc '
+              . /opt/esp/idf/export.sh
+              idf.py set-target "${IDF_TARGET}"
+              idf.py build
+            '
 
       - name: Upload firmware artifacts
         uses: actions/upload-artifact@v3
         with:
           name: firmware-${{ env.IDF_TARGET }}
           path: |
-            build/embed-framework.bin
+            build/*.bin
             build/bootloader/bootloader.bin
             build/partition_table/partition-table.bin
-            build/*.bin
             build/flasher_args.json
           if-no-files-found: error
 
   firmware-ota:
     name: Build firmware (OTA partitions)
     runs-on: ubuntu-latest
-    container:
-      image: espressif/idf:v5.5.1
-      options: --security-opt seccomp=unconfined
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build with partitions_ota.csv
+      - name: Build with partitions_ota.csv (Docker IDF)
         run: |
-          . /opt/esp/idf/export.sh
-          idf.py set-target "${IDF_TARGET}"
-          idf.py -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.ota" build
+          docker run --rm \
+            -e IDF_TARGET="${IDF_TARGET}" \
+            -v "${GITHUB_WORKSPACE}:/project" \
+            -w /project \
+            "${IDF_IMAGE}" \
+            bash -lc '
+              . /opt/esp/idf/export.sh
+              idf.py set-target "${IDF_TARGET}"
+              idf.py -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.ota" build
+            '
 
       - name: Upload OTA firmware artifacts
         uses: actions/upload-artifact@v3

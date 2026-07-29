@@ -3,13 +3,14 @@
 #include "embed_core/wifi_service.hpp"
 #include "embed_core/metrics_service.hpp"
 #include "embed_core/mqtt_credentials.hpp"
-#include "thingsboard/credentials.h"
 #include "embed_core/mqtt_service.hpp"
 #include "embed_extra/camera_service.hpp"
 #include "embed_extra/mjpeg_service.hpp"
 #include "alicloud_oss/oss_service.hpp"
 #include "alicloud_iot/alicloud_credentials.hpp"
 #include "alicloud_iot/alicloud_service.hpp"
+#include "thingsboard/credentials.hpp"
+#include "thingsboard/thingsboard_service.hpp"
 
 #include "esp_tls.h"
 #include "esp_log.h"
@@ -20,7 +21,7 @@
 #include "embed_extra/oss_upload_service.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
+#include "sdkconfig.h"
 // ── Messages ────────────────────────────────────────────────────────────
 
 struct LedStateChanged {
@@ -257,7 +258,14 @@ extern "C" void app_main() {
     ESP_LOGI("Main", "event loop initialized");
 
     // 2. Create MQTT credentials (static — must outlive MqttService)
-    //    Use AlicloudCredentials if configured; fall back to PlainMqttCredentials.
+    //    Prefer ThingsBoard Access Token if configured; else Alicloud; else plain MQTT.
+    static auto tbCreds = thingsboard::ThingsBoardCredentials::createAccessToken(
+        CONFIG_EMBED_THINGSBOARD_HOST,
+        CONFIG_EMBED_THINGSBOARD_ACCESS_TOKEN,
+        CONFIG_EMBED_THINGSBOARD_USE_TLS,
+        static_cast<uint16_t>(CONFIG_EMBED_THINGSBOARD_PORT)
+    );
+
     static auto aliCreds = alicloud::iot::AlicloudCredentials::create(
         CONFIG_EMBED_ALICLOUD_PRODUCT_KEY,
         CONFIG_EMBED_ALICLOUD_DEVICE_NAME,
@@ -271,14 +279,19 @@ extern "C" void app_main() {
         CONFIG_EMBED_MQTT_PASSWORD
     );
 
-    embed::MqttCredentials& mqttCreds = (aliCreds && aliCreds->isValid())
-        ? static_cast<embed::MqttCredentials&>(*aliCreds)
-        : static_cast<embed::MqttCredentials&>(plainCreds);
+    embed::MqttCredentials& mqttCreds =
+        (tbCreds && tbCreds->isValid())
+            ? static_cast<embed::MqttCredentials&>(*tbCreds)
+            : (aliCreds && aliCreds->isValid())
+                ? static_cast<embed::MqttCredentials&>(*aliCreds)
+                : static_cast<embed::MqttCredentials&>(plainCreds);
 
-    if (aliCreds && aliCreds->isValid())
+    if (tbCreds && tbCreds->isValid())
+        ESP_LOGI("Main", "Using ThingsBoard Access Token credentials");
+    else if (aliCreds && aliCreds->isValid())
         ESP_LOGI("Main", "Using Alibaba Cloud IoT credentials");
     else
-        ESP_LOGW("Main", "Using plain MQTT credentials (Alicloud not configured)");
+        ESP_LOGW("Main", "Using plain MQTT credentials (cloud not configured)");
 
     // 3. Create services
     ESP_LOGI("Main", "Free heap before services: %lu", esp_get_free_heap_size());
@@ -288,6 +301,10 @@ extern "C" void app_main() {
     registry.createService<embed::WifiService>();
     //registry.createService<embed::MetricsService>();
     //registry.createService<embed::MqttService>(mqttCreds);
+    //registry.createService<thingsboard::ThingsBoardService>(
+    //    CONFIG_EMBED_THINGSBOARD_TOPIC_SHORT
+    //        ? thingsboard::TopicStyle::Short
+    //        : thingsboard::TopicStyle::Standard);
     //registry.createService<alicloud::iot::AlicloudService>();
     registry.createService<embed::CameraService>();
     registry.createService<embed::MjpegService>();

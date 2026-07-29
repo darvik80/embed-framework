@@ -1,10 +1,17 @@
 idf_component_register(
     SRCS
         "src/credentials.cpp"
+        "src/topics.cpp"
+        "src/thingsboard_service.cpp"
     INCLUDE_DIRS
-        include
+        "include"
     REQUIRES
         embed
         embed_core
+        json
+        log
+        esp_hw_support
 )
-target_compile_options(${COMPONENT_LIB} PRIVATE -std=gnu2x)
+
+target_compile_features(${COMPONENT_LIB} PUBLIC cxx_std_20)
+target_compile_options(${COMPONENT_LIB} PRIVATE -fno-exceptions)
