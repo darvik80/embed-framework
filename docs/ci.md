@@ -1,51 +1,34 @@
 # CI / CD (Gitea Actions)
 
-Workflows use **GitHub Actions–compatible** YAML for [Gitea Actions](https://docs.gitea.com/usage/actions/overview) (`act_runner`) and GitHub.
+Workflows: [`.gitea/workflows/ci.yml`](../.gitea/workflows/ci.yml) (mirror under `.github/workflows/`).
 
-| Path | Purpose |
-|------|---------|
-| [`.gitea/workflows/ci.yml`](../.gitea/workflows/ci.yml) | Preferred for Gitea |
-| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | Mirror for GitHub |
+## Common failures on Gitea `act_runner`
 
-## Why not `container: espressif/idf`?
+| Error | Cause | Fix in this repo |
+|-------|--------|------------------|
+| `exec: "node": not found` (126) | Job `container: espressif/idf` + `actions/checkout` | No job-level IDF container; checkout on host |
+| `Bind mount failed: '/workspace/...'` (125) | Nested `docker run -v $GITHUB_WORKSPACE` — path exists only inside the job container | [`tools/ci/idf-docker.sh`](../tools/ci/idf-docker.sh) uses `--volumes-from` |
 
-`actions/checkout` and `actions/upload-artifact` run with **Node.js**. The official IDF image has no `node`, so Gitea fails with:
+## How builds run
 
-```text
-exec: "node": executable file not found in $PATH  (exit 126)
-```
-
-**Fix used here:** job runs on the host runner; IDF builds use `docker run … espressif/idf:…`.
+1. `actions/checkout` on the runner (needs Node on the **job** environment).
+2. `tools/ci/idf-docker.sh` starts `espressif/idf:v5.5.1`:
+   - **Inside act_runner job container:** `--volumes-from <self>` + `-w $GITHUB_WORKSPACE/...`
+   - **Bare-metal runner:** `-v $GITHUB_WORKSPACE:/project`
 
 ## Jobs
 
 | Job | What |
 |-----|------|
-| `unity-tests` | Builds `test_apps/embed_unity` |
-| `firmware` | Main firmware (`partitions.csv`) |
+| `unity-tests` | `test_apps/embed_unity` |
+| `firmware` | main app, `partitions.csv` |
 | `firmware-ota` | `sdkconfig.defaults` + `sdkconfig.defaults.ota` |
 
-Device flash is not part of CI.
+## Runner setup
 
-## Gitea setup
+1. Enable Actions on the repo.
+2. `act_runner` with Docker socket access.
+3. Label `ubuntu-latest`.
+4. Ability to pull `espressif/idf:v5.5.1`.
 
-1. Enable **Actions** on the repo.
-2. Register [`act_runner`](https://docs.gitea.com/usage/actions/act-runner) with **Docker** (docker.sock / privileged as needed).
-3. Runner label must match `runs-on` (`ubuntu-latest`).
-4. Runner must be able to pull `espressif/idf:v5.5.1`.
-
-If `docker run` fails with permission errors, grant the runner user access to the Docker socket.
-
-## Local equivalents
-
-```bash
-# Unity
-cd test_apps/embed_unity && idf.py set-target esp32s3 && idf.py build
-
-# Firmware (factory)
-idf.py set-target esp32s3 && idf.py build
-
-# Firmware (OTA)
-idf.py set-target esp32s3
-idf.py -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.ota" build
-```
+If `--volumes-from` still fails, check that the runner’s Docker mode allows containers to see sibling containers (`docker inspect $(cat /etc/hostname)` from a debug step).

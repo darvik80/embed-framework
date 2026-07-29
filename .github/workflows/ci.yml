@@ -1,7 +1,5 @@
-# Mirror of .gitea/workflows/ci.yml for GitHub / runners that only scan .github/
-#
-# Do NOT use job-level `container: espressif/idf` with actions/checkout —
-# the IDF image has no Node.js (exit 126). Build via docker run instead.
+# Mirror of .gitea/workflows/ci.yml
+# See tools/ci/idf-docker.sh for Gitea act_runner volume mounting.
 
 name: CI
 
@@ -27,18 +25,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build embed_unity (Docker IDF)
+      - name: Build embed_unity
         run: |
-          docker run --rm \
-            -e IDF_TARGET="${IDF_TARGET}" \
-            -v "${GITHUB_WORKSPACE}:/project" \
-            -w /project/test_apps/embed_unity \
-            "${IDF_IMAGE}" \
-            bash -lc '
-              . /opt/esp/idf/export.sh
-              idf.py set-target "${IDF_TARGET}"
-              idf.py build
-            '
+          chmod +x tools/ci/idf-docker.sh
+          tools/ci/idf-docker.sh test_apps/embed_unity -- set-target "${IDF_TARGET}"
+          tools/ci/idf-docker.sh test_apps/embed_unity -- build
 
       - name: Upload Unity build artifacts
         uses: actions/upload-artifact@v3
@@ -56,18 +47,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build project (Docker IDF)
+      - name: Build project
         run: |
-          docker run --rm \
-            -e IDF_TARGET="${IDF_TARGET}" \
-            -v "${GITHUB_WORKSPACE}:/project" \
-            -w /project \
-            "${IDF_IMAGE}" \
-            bash -lc '
-              . /opt/esp/idf/export.sh
-              idf.py set-target "${IDF_TARGET}"
-              idf.py build
-            '
+          chmod +x tools/ci/idf-docker.sh
+          tools/ci/idf-docker.sh . -- set-target "${IDF_TARGET}"
+          tools/ci/idf-docker.sh . -- build
 
       - name: Upload firmware artifacts
         uses: actions/upload-artifact@v3
@@ -87,18 +71,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build with partitions_ota.csv (Docker IDF)
+      - name: Build with partitions_ota.csv
         run: |
-          docker run --rm \
-            -e IDF_TARGET="${IDF_TARGET}" \
-            -v "${GITHUB_WORKSPACE}:/project" \
-            -w /project \
-            "${IDF_IMAGE}" \
-            bash -lc '
-              . /opt/esp/idf/export.sh
-              idf.py set-target "${IDF_TARGET}"
-              idf.py -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.ota" build
-            '
+          chmod +x tools/ci/idf-docker.sh
+          tools/ci/idf-docker.sh . -- set-target "${IDF_TARGET}"
+          tools/ci/idf-docker.sh . -- -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.ota" build
 
       - name: Upload OTA firmware artifacts
         uses: actions/upload-artifact@v3
