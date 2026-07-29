@@ -6,6 +6,7 @@
 #include "freertos/task.h"
 #include <cstdint>
 #include <cstddef>
+#include <cstdlib>
 
 namespace embed {
 
@@ -23,6 +24,25 @@ struct CameraFrame {
     camera_fb_t* fb;    ///< Camera FB handle for zero-copy return (may be null)
 };
 static_assert(embed::Message<CameraFrame>);
+
+/// Release a frame buffer according to ownership rules.
+/// Prefer esp_camera_fb_return when fb is set; otherwise free(data).
+inline void releaseCameraFrame(CameraFrame& frame) {
+    if (frame.fb) {
+        esp_camera_fb_return(frame.fb);
+        frame.fb = nullptr;
+        frame.data = nullptr;
+    } else if (frame.data) {
+        free(frame.data);
+        frame.data = nullptr;
+    }
+    frame.len = 0;
+}
+
+inline void releaseCameraFrame(const CameraFrame& frame) {
+    CameraFrame copy = frame;
+    releaseCameraFrame(copy);
+}
 
 /// Service that captures JPEG frames from the ESP32 camera driver
 /// and distributes them to subscribers via Signal<CameraFrame>.

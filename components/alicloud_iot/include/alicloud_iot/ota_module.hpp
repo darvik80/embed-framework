@@ -3,11 +3,18 @@
 #include "alicloud_iot/alicloud_module.hpp"
 #include "esp_ota_ops.h"
 #include <array>
+#include <atomic>
 #include <functional>
 #include <string>
 
 /**
  * Ref: https://www.alibabacloud.com/help/en/iot/user-guide/ota-update
+ *
+ * OTA download/flash runs on a dedicated FreeRTOS task so MQTT / embed
+ * EventLoop handlers are never blocked for the duration of the transfer.
+ *
+ * Requires dual OTA app partitions (see partitions_ota.csv). With a
+ * factory-only table, updates are rejected early via reportProgress.
  */
 
 namespace alicloud::iot {
@@ -50,6 +57,9 @@ public:
 
     void handleMqttData(std::string_view topic, const char* data, int data_len) override;
 
+    /// True while the background OTA task is running.
+    bool isUpdateInProgress() const { return otaInProgress_.load(); }
+
 protected:
     bool subscribeTopics()   override;
     bool unsubscribeTopics() override;
@@ -58,13 +68,19 @@ private:
     std::string         currentVersion_;
     std::string         moduleName_;
     OtaFirmwareCallback firmwareCb_;
+    std::atomic<bool>   otaInProgress_{false};
 
     std::string buildOtaTopic(const std::string& suffix) const;
 
     void handleFirmwareUpgrade(std::string_view payload);
     void handleFirmwareGetReply(std::string_view payload);
     OtaFirmwareInfo parseFirmwareInfo(const void* dataJsonObject) const;
+
+    /// Validate partitions and enqueue work on a dedicated task.
+    void scheduleOtaUpdate(OtaFirmwareInfo firmware);
     void performOtaUpdate(const OtaFirmwareInfo& firmware);
+    static void otaTaskFunc(void* arg);
+
     bool verifyMd5(const std::array<uint8_t, 16>& digest, const std::string& expectedMd5) const;
     void reportProgress(int step, const std::string& description);
 };

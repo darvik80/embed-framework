@@ -3,9 +3,9 @@
 #include "embed/config.hpp"
 #include "embed/message.hpp"
 #include "esp_event.h"
+#include "freertos/FreeRTOS.h"
 
 #if EMBED_THREAD_SAFE
-#include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #endif
 
@@ -34,11 +34,17 @@ public:
     esp_event_loop_handle_t handle() const { return handle_; }
 
     /// Post a trivially-copyable message to the event loop.
+    /// Waits up to EMBED_EVENT_POST_TIMEOUT_MS (or forever if set to -1).
+    /// Returns ESP_OK, ESP_ERR_TIMEOUT if the queue is full, or other esp_err_t.
     template<Message M>
-    void post(esp_event_base_t base, int32_t id, const M& msg) {
-        if (!handle_) return;
-        esp_event_post_to(handle_, base, id,
-                          &msg, sizeof(M), portMAX_DELAY);
+    esp_err_t post(esp_event_base_t base, int32_t id, const M& msg) {
+        if (!handle_) return ESP_ERR_INVALID_STATE;
+#if EMBED_EVENT_POST_TIMEOUT_MS < 0
+        const TickType_t ticks = portMAX_DELAY;
+#else
+        const TickType_t ticks = pdMS_TO_TICKS(EMBED_EVENT_POST_TIMEOUT_MS);
+#endif
+        return esp_event_post_to(handle_, base, id, &msg, sizeof(M), ticks);
     }
 
     /// Register a handler using the instance-based API.

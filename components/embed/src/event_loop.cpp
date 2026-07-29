@@ -52,16 +52,30 @@ esp_err_t EventLoop::registerHandler(esp_event_base_t base,
                                       void* arg,
                                       esp_event_handler_instance_t* instance) {
     if (!handle_) return ESP_ERR_INVALID_STATE;
-    return esp_event_handler_instance_register_with(
+#if EMBED_THREAD_SAFE
+    if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
+#endif
+    esp_err_t err = esp_event_handler_instance_register_with(
         handle_, base, id, handler, arg, instance);
+#if EMBED_THREAD_SAFE
+    if (mutex_) xSemaphoreGive(mutex_);
+#endif
+    return err;
 }
 
 esp_err_t EventLoop::unregisterHandler(esp_event_base_t base,
                                         int32_t id,
                                         esp_event_handler_instance_t instance) {
     if (!handle_) return ESP_ERR_INVALID_STATE;
-    return esp_event_handler_instance_unregister_with(
+#if EMBED_THREAD_SAFE
+    if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
+#endif
+    esp_err_t err = esp_event_handler_instance_unregister_with(
         handle_, base, id, instance);
+#if EMBED_THREAD_SAFE
+    if (mutex_) xSemaphoreGive(mutex_);
+#endif
+    return err;
 }
 
 } // namespace embed

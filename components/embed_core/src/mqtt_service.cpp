@@ -160,7 +160,10 @@ esp_err_t MqttService::initMqttClient() {
     mqttCfg.credentials.username = credentials_->username();
     mqttCfg.credentials.client_id = credentials_->clientId();
     mqttCfg.credentials.authentication.password = credentials_->password();
-    mqttCfg.network.reconnect_timeout_ms = CONFIG_EMBED_MQTT_RECONNECT_INTERVAL_MS;
+    // Reconnect policy is owned by MqttService state machine + esp_timer
+    // (CONFIG_EMBED_MQTT_MAX_RETRY / CONFIG_EMBED_MQTT_RECONNECT_INTERVAL_MS).
+    // Disable esp-mqtt auto-reconnect to avoid dual competing retry loops.
+    mqttCfg.network.disable_auto_reconnect = true;
     mqttCfg.network.timeout_ms = 5000;
     mqttCfg.session.keepalive = CONFIG_EMBED_MQTT_KEEPALIVE;
 
@@ -237,6 +240,10 @@ void MqttService::processMqttEvent(int32_t event_id, void* event_data) {
         }
         if (event->data && event->data_len > 0) {
             msg.payload.assign(event->data, event->data_len);
+            if (static_cast<size_t>(event->data_len) > msg.payload.capacity()) {
+                ESP_LOGW(TAG, "MQTT payload truncated: %d -> %zu bytes (topic=%s)",
+                         event->data_len, msg.payload.capacity(), msg.topic.c_str());
+            }
         }
         ESP_LOGD(TAG, "MQTT data: topic=%s len=%d", msg.topic.c_str(), event->data_len);
         onMessage.emit(msg);

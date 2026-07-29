@@ -25,4 +25,5 @@ idf_component_register(
     PRIV_REQUIRES
         mbedtls
         hal
+        freertos
 )

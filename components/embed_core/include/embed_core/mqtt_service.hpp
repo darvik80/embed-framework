@@ -40,9 +40,11 @@ struct MqttDisconnected {
 static_assert(embed::Message<MqttDisconnected>);
 
 /// Emitted when an incoming MQTT message arrives.
+/// payload capacity is sized for typical Alink JSON (see EMBED_MAX_EVENT_DATA_SIZE).
+/// Longer broker payloads are truncated; see MqttService logs.
 struct MqttMessageReceived {
     embed::string<127> topic;
-    embed::string<255> payload;
+    embed::string<767> payload;
 };
 static_assert(embed::Message<MqttMessageReceived>);
 

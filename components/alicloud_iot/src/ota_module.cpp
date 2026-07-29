@@ -4,6 +4,9 @@
 #include "esp_ota_ops.h"
 #include "esp_http_client.h"
 #include "esp_crt_bundle.h"
+#include "esp_system.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "mbedtls/md5.h"
 #include "cJSON.h"
 #include <array>
@@ -13,8 +16,19 @@
 
 static const char* TAG = "OTA";
 static constexpr int OTA_HTTP_BUFFER_SIZE = 4096;
+static constexpr uint32_t OTA_TASK_STACK = 8192;
+static constexpr UBaseType_t OTA_TASK_PRIO = 5;
 
 namespace alicloud::iot {
+
+namespace {
+
+struct OtaTaskArg {
+    OtaModule* self;
+    OtaFirmwareInfo* firmware;
+};
+
+} // namespace
 
 OtaModule::OtaModule(embed::MqttService& mqtt,
                      std::string_view    productKey,
@@ -188,7 +202,7 @@ void OtaModule::handleFirmwareUpgrade(std::string_view payload)
     if (firmware.url.empty()) { ESP_LOGE(TAG, "Firmware URL missing"); return; }
     if (firmwareCb_ && !firmwareCb_(firmware)) { ESP_LOGW(TAG, "Firmware update rejected"); return; }
 
-    performOtaUpdate(firmware);
+    scheduleOtaUpdate(std::move(firmware));
 }
 
 void OtaModule::handleFirmwareGetReply(std::string_view payload)
@@ -217,7 +231,7 @@ void OtaModule::handleFirmwareGetReply(std::string_view payload)
     if (firmware.url.empty()) return;
     if (firmwareCb_ && !firmwareCb_(firmware)) { ESP_LOGW(TAG, "Firmware update rejected"); return; }
 
-    performOtaUpdate(firmware);
+    scheduleOtaUpdate(std::move(firmware));
 }
 
 OtaFirmwareInfo OtaModule::parseFirmwareInfo(const void* dataJsonObject) const
@@ -246,6 +260,53 @@ OtaFirmwareInfo OtaModule::parseFirmwareInfo(const void* dataJsonObject) const
         info.isDiff = isDiffItem->valueint != 0;
 
     return info;
+}
+
+void OtaModule::scheduleOtaUpdate(OtaFirmwareInfo firmware)
+{
+    const esp_partition_t* updatePartition = esp_ota_get_next_update_partition(nullptr);
+    if (!updatePartition) {
+        ESP_LOGE(TAG, "No OTA partition — use partitions_ota.csv (ota_0/ota_1)");
+        reportProgress(static_cast<int>(OtaProgressStep::FlashError),
+                       "No OTA partition available");
+        return;
+    }
+
+    bool expected = false;
+    if (!otaInProgress_.compare_exchange_strong(expected, true)) {
+        ESP_LOGW(TAG, "OTA already in progress — ignoring new request");
+        return;
+    }
+
+    auto* arg = new OtaTaskArg{
+        this,
+        new OtaFirmwareInfo(std::move(firmware)),
+    };
+
+    BaseType_t ok = xTaskCreate(otaTaskFunc, "ota_update", OTA_TASK_STACK,
+                                arg, OTA_TASK_PRIO, nullptr);
+    if (ok != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create OTA task");
+        delete arg->firmware;
+        delete arg;
+        otaInProgress_.store(false);
+        reportProgress(static_cast<int>(OtaProgressStep::UpdateError),
+                       "Failed to start OTA task");
+    }
+}
+
+void OtaModule::otaTaskFunc(void* raw)
+{
+    auto* arg = static_cast<OtaTaskArg*>(raw);
+    OtaModule* self = arg->self;
+    OtaFirmwareInfo* firmware = arg->firmware;
+    delete arg;
+
+    // Do not use RAII across vTaskDelete — it does not run C++ destructors.
+    self->performOtaUpdate(*firmware);
+    delete firmware;
+    self->otaInProgress_.store(false);
+    vTaskDelete(nullptr);
 }
 
 void OtaModule::performOtaUpdate(const OtaFirmwareInfo& firmware)
