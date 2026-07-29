@@ -6,6 +6,7 @@ dependencies.lock
 test_apps/**/build/
 test_apps/**/sdkconfig
 test_apps/**/sdkconfig.old
+host_test/build/
 
 # IDE
 .idea/
