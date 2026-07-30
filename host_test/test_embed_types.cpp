@@ -233,18 +233,19 @@ void test_variant_valueless(void)
 {
     embed::variant<int, float> v;
     TEST_ASSERT_TRUE(v.valueless_by_exception());
-    TEST_ASSERT_TRUE(v.index() == embed::variant<int, float>::npos);
+    TEST_ASSERT_TRUE((v.index() == embed::variant<int, float>::npos));
 }
 
 // ── trivially copyable checks ───────────────────────────────────────────
 
 void test_all_trivially_copyable(void)
 {
-    TEST_ASSERT_TRUE(std::is_trivially_copyable_v<embed::pair<int, float>>);
-    TEST_ASSERT_TRUE(std::is_trivially_copyable_v<embed::tuple<int, float, char>>);
-    TEST_ASSERT_TRUE(std::is_trivially_copyable_v<embed::array<int, 8>>);
-    TEST_ASSERT_TRUE(std::is_trivially_copyable_v<embed::optional<int>>);
-    TEST_ASSERT_TRUE(std::is_trivially_copyable_v<embed::variant<int, float, char>>);
+    // Extra parens: commas inside template args confuse Unity macros.
+    TEST_ASSERT_TRUE((std::is_trivially_copyable_v<embed::pair<int, float>>));
+    TEST_ASSERT_TRUE((std::is_trivially_copyable_v<embed::tuple<int, float, char>>));
+    TEST_ASSERT_TRUE((std::is_trivially_copyable_v<embed::array<int, 8>>));
+    TEST_ASSERT_TRUE((std::is_trivially_copyable_v<embed::optional<int>>));
+    TEST_ASSERT_TRUE((std::is_trivially_copyable_v<embed::variant<int, float, char>>));
 }
 
 } // extern "C"
