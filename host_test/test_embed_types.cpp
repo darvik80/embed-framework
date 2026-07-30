@@ -233,7 +233,7 @@ void test_variant_valueless(void)
 {
     embed::variant<int, float> v;
     TEST_ASSERT_TRUE(v.valueless_by_exception());
-    TEST_ASSERT_EQUAL_UINT(embed::variant<int, float>::npos, v.index());
+    TEST_ASSERT_TRUE(v.index() == embed::variant<int, float>::npos);
 }
 
 // ── trivially copyable checks ───────────────────────────────────────────

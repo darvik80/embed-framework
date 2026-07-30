@@ -206,9 +206,21 @@ private:
     }
 
     static void onMetricsCollected(const embed::MetricsCollected& msg, void* /*ctx*/) {
-        ESP_LOGI("Monitor", "METRICS: cpu=%u%% heap_free=%u uptime=%us wifi=%s",
-                 msg.cpuUsagePercent, msg.freeHeap, msg.uptimeSeconds,
-                 msg.wifiConnected ? "UP" : "DOWN");
+        const size_t dramTotal = heap_caps_get_total_size(MALLOC_CAP_INTERNAL);
+        const size_t psramTotal = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
+        const unsigned dramUsedPct = dramTotal ? (unsigned)((dramTotal - msg.freeHeap) * 100 / dramTotal) : 0;
+        const unsigned psramUsedPct = psramTotal ? (unsigned)((psramTotal - msg.freePsram) * 100 / psramTotal) : 0;
+
+        ESP_LOGI("Metrics", "┌─ cpu=%u%%  uptime=%us", msg.cpuUsagePercent, msg.uptimeSeconds);
+        ESP_LOGI("Metrics", "│  dram:  %u%% used  free=%u min=%u largest_block=%u",
+                 dramUsedPct, msg.freeHeap, msg.minFreeHeap, msg.largestFreeBlock);
+        ESP_LOGI("Metrics", "│  psram: %u%% used  free=%u min=%u",
+                 psramUsedPct, msg.freePsram, msg.minFreePsram);
+        ESP_LOGI("Metrics", "│  storage: total=%llu used=%llu",
+                 msg.storageTotalBytes, msg.storageUsedBytes);
+        ESP_LOGI("Metrics", "│  wifi: %s rssi=%d ip=%s",
+                 msg.wifiConnected ? "UP" : "DOWN", msg.wifiRssi, msg.wifiIp.c_str());
+        ESP_LOGI("Metrics", "└─");
     }
 
     static void onMqttConnected(const embed::MqttConnected& msg, void* /*ctx*/) {
@@ -398,7 +410,7 @@ extern "C" void app_main() {
     //registry.createService<embed::OssService>();
     // OssUploadService disabled — MjpegService is the sole frame consumer
     //registry.createService<embed::OssUploadService>();
-    //registry.createService<MonitorService>();
+    registry.createService<MonitorService>();
 
     ESP_LOGI("Main", "services created: %zu, free heap: %lu",
              registry.count(), esp_get_free_heap_size());

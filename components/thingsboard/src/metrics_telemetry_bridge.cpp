@@ -59,7 +59,6 @@ TelemetryBuilder MetricsTelemetryBridge::buildFromMetrics(const embed::MetricsCo
     }
 
     b.add(keys::kVersion, embed::appVersion());
-    ESP_LOGI("test", "Ver: %s", embed::appVersion());
     for (uint8_t i = 0; i < msg.customMetricsCount; ++i) {
         const auto& m = msg.customMetrics[i];
         if (!m.name.empty()) {

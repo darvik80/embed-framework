@@ -158,10 +158,10 @@ uint8_t MetricsService::collectCpuLoad() {
 }
 
 void MetricsService::collectMemoryInfo(MetricsCollected& msg) {
-    // Heap (DRAM + PSRAM combined, 8-bit capable)
-    msg.freeHeap = heap_caps_get_free_size(MALLOC_CAP_8BIT);
-    msg.minFreeHeap = heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT);
-    msg.largestFreeBlock = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+    // Internal DRAM only
+    msg.freeHeap = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+    msg.minFreeHeap = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL);
+    msg.largestFreeBlock = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
 
     // PSRAM
     msg.freePsram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
