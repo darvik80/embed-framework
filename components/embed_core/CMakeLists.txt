@@ -14,6 +14,7 @@ idf_component_register(
         mqtt
         esp_timer
         esp_system
+        esp_app_format
         log
         freertos
     PRIV_REQUIRES

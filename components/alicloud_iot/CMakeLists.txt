@@ -11,6 +11,7 @@ idf_component_register(
         src/device_tags_module.cpp
         src/device_log_module.cpp
         src/device_network_status_module.cpp
+        src/metrics_property_bridge.cpp
     INCLUDE_DIRS
         include
     REQUIRES

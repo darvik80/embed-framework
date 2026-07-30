@@ -80,3 +80,89 @@ add_test(NAME embed_primitives COMMAND test_embed_primitives)
 add_test(NAME tb_telemetry COMMAND test_tb_telemetry)
 add_test(NAME tb_attributes COMMAND test_tb_attributes)
 add_test(NAME tb_rpc COMMAND test_tb_rpc)
+
+# ── embed types (pair, tuple, array, optional, variant) ─────────────────
+
+add_executable(test_embed_types
+    test_embed_types.cpp
+)
+target_include_directories(test_embed_types PRIVATE
+    "${CMAKE_CURRENT_LIST_DIR}/../components/embed/include"
+)
+target_link_libraries(test_embed_types PRIVATE unity)
+add_test(NAME embed_types COMMAND test_embed_types)
+
+# ── embed state machine ─────────────────────────────────────────────────
+
+add_executable(test_embed_state_machine
+    test_embed_state_machine.cpp
+)
+target_include_directories(test_embed_state_machine PRIVATE
+    "${CMAKE_CURRENT_LIST_DIR}/../components/embed/include"
+)
+target_link_libraries(test_embed_state_machine PRIVATE unity)
+add_test(NAME embed_state_machine COMMAND test_embed_state_machine)
+
+# ── ThingsBoard topics (full coverage) ──────────────────────────────────
+
+add_executable(test_tb_topics
+    test_tb_topics.cpp
+    "${CMAKE_CURRENT_LIST_DIR}/../components/thingsboard/src/topics.cpp"
+)
+target_include_directories(test_tb_topics PRIVATE
+    "${CMAKE_CURRENT_LIST_DIR}/../components/thingsboard/include"
+    "${CMAKE_CURRENT_LIST_DIR}/../components/embed/include"
+)
+target_link_libraries(test_tb_topics PRIVATE unity)
+add_test(NAME tb_topics COMMAND test_tb_topics)
+
+# ── Alicloud MessageIdGenerator ─────────────────────────────────────────
+
+add_executable(test_alicloud_msgid
+    test_alicloud_msgid.cpp
+    "${CMAKE_CURRENT_LIST_DIR}/../components/alicloud_iot/src/message_id_generator.cpp"
+)
+target_include_directories(test_alicloud_msgid PRIVATE
+    "${CMAKE_CURRENT_LIST_DIR}/../components/alicloud_iot/include"
+    "${CMAKE_CURRENT_LIST_DIR}/../components/embed_core/include"
+    "${CMAKE_CURRENT_LIST_DIR}/../components/embed/include"
+)
+target_link_libraries(test_alicloud_msgid PRIVATE unity)
+add_test(NAME alicloud_msgid COMMAND test_alicloud_msgid)
+
+# ── Alicloud credentials (needs mbedtls SHA-256 on host) ───────────────
+
+FetchContent_Declare(
+    mbedtls
+    GIT_REPOSITORY https://github.com/Mbed-TLS/mbedtls.git
+    GIT_TAG        v3.6.2
+    GIT_SHALLOW    TRUE
+)
+FetchContent_GetProperties(mbedtls)
+if(NOT mbedtls_POPULATED)
+    FetchContent_Populate(mbedtls)
+endif()
+
+add_library(mbedtls_sha256_host STATIC
+    "${mbedtls_SOURCE_DIR}/library/sha256.c"
+    "${mbedtls_SOURCE_DIR}/library/platform_util.c"
+    "${mbedtls_SOURCE_DIR}/library/constant_time.c"
+)
+target_include_directories(mbedtls_sha256_host PUBLIC
+    "${mbedtls_SOURCE_DIR}/include"
+)
+target_compile_definitions(mbedtls_sha256_host PRIVATE
+    MBEDTLS_CONFIG_FILE="${CMAKE_CURRENT_LIST_DIR}/mbedtls_config_host.h"
+)
+
+add_executable(test_alicloud_credentials
+    test_alicloud_credentials.cpp
+    "${CMAKE_CURRENT_LIST_DIR}/../components/alicloud_iot/src/alicloud_credentials.cpp"
+)
+target_include_directories(test_alicloud_credentials PRIVATE
+    "${CMAKE_CURRENT_LIST_DIR}/../components/alicloud_iot/include"
+    "${CMAKE_CURRENT_LIST_DIR}/../components/embed_core/include"
+    "${CMAKE_CURRENT_LIST_DIR}/../components/embed/include"
+)
+target_link_libraries(test_alicloud_credentials PRIVATE unity mbedtls_sha256_host)
+add_test(NAME alicloud_credentials COMMAND test_alicloud_credentials)

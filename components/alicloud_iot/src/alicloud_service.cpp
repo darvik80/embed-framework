@@ -1,5 +1,6 @@
 #include "alicloud_iot/alicloud_service.hpp"
 #include "embed/registry.hpp"
+#include "embed_core/app_version.hpp"
 #include "esp_log.h"
 
 static const char* TAG = "AlicloudService";
@@ -18,7 +19,7 @@ void AlicloudService::start()
     ESP_LOGI(TAG, "Creating Alink modules");
 
     things_        = std::make_unique<ThingsModule>(*mqtt_, productKey_, deviceName_);
-    ota_           = std::make_unique<OtaModule>(*mqtt_, productKey_, deviceName_, "1.0.0");
+    ota_           = std::make_unique<OtaModule>(*mqtt_, productKey_, deviceName_, embed::appVersion());
     ntp_           = std::make_unique<NtpModule>(*mqtt_, productKey_, deviceName_);
     remoteConfig_  = std::make_unique<RemoteConfigModule>(*mqtt_, productKey_, deviceName_);
     deviceTags_    = std::make_unique<DeviceTagsModule>(*mqtt_, productKey_, deviceName_);
