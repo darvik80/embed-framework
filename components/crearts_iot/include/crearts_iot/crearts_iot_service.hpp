@@ -50,7 +50,9 @@ static_assert(embed::Message<OtaCancel>);
 
 /// Crearts IoT device API over embed::MqttService (protocol v1).
 ///
-/// On MQTT connect: subscribe downstream + publish retained online status.
+/// On MQTT connect: subscribe downstream only.
+/// Presence: platform detects online from the MQTT session; offline via LWT
+/// on the status topic (configured in CreartsCredentials).
 /// Correlation for RPC / attributes / NTP uses JSON field `"id"`.
 class CreartsIotService : public embed::Service {
 public:
@@ -60,9 +62,6 @@ public:
 
     void start() override;
     void stop() override;
-
-    int publishStatusOnline(std::string_view fw = {}, std::string_view ip = {}, int qos = 1);
-    int publishStatusOffline(const char* reason = "shutdown", int qos = 1);
 
     int publishTelemetry(std::string_view json, int qos = 1);
     int publishTelemetry(const TelemetryBuilder& builder, int qos = 1);

@@ -64,18 +64,6 @@ int CreartsIotService::publishRaw(const std::string& topic,
     return mqtt_->publish(topic.c_str(), json.data(), static_cast<int>(json.size()), qos, retain);
 }
 
-int CreartsIotService::publishStatusOnline(std::string_view fw, std::string_view ip, int qos)
-{
-    const std::string json = CreartsCredentials::makeOnlineStatusJson(fw, ip);
-    return publishRaw(topics_.statusPublish(), json, qos, true);
-}
-
-int CreartsIotService::publishStatusOffline(const char* reason, int qos)
-{
-    const std::string json = CreartsCredentials::makeOfflineStatusJson(reason);
-    return publishRaw(topics_.statusPublish(), json, qos, true);
-}
-
 int CreartsIotService::publishTelemetry(std::string_view json, int qos)
 {
     return publishRaw(topics_.telemetryPublish(), json, qos);
@@ -264,9 +252,8 @@ int CreartsIotService::publishLogs(std::string_view json, int qos)
 void CreartsIotService::onMqttConnected(const embed::MqttConnected& /*msg*/, void* ctx)
 {
     auto* self = static_cast<CreartsIotService*>(ctx);
-    ESP_LOGI(TAG, "MQTT connected — subscribe + online status");
+    ESP_LOGI(TAG, "MQTT connected — subscribing downstream");
     self->subscribeAll();
-    self->publishStatusOnline();
 }
 
 void CreartsIotService::onMqttDisconnected(const embed::MqttDisconnected& /*msg*/, void* ctx)
@@ -300,14 +287,8 @@ void CreartsIotService::unsubscribeAll()
 
 void CreartsIotService::handleMessage(std::string_view topic, std::string_view payload)
 {
-    // Short-style device also receives its own uplinks on v1/# — ignore them.
-    if (topic == "v1/s" || topic == "v1/t" || topic == "v1/e" || topic == "v1/a" ||
-        topic == "v1/a/req" || topic == "v1/r/res" || topic == "v1/r/creq" ||
-        topic == "v1/n/req" || topic == "v1/o/ver" || topic == "v1/o/q" ||
-        topic == "v1/o/p" || topic == "v1/l") {
-        return;
-    }
-    if (topic.find("/up/") != std::string_view::npos) {
+    // Short-style `v1/#` also delivers device uplinks — ignore them.
+    if (Topics::isUplink(topic)) {
         return;
     }
 

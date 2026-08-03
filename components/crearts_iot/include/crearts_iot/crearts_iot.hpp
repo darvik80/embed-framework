@@ -1,6 +1,7 @@
 #pragma once
 
 #include "crearts_iot/credentials.hpp"
+#include "crearts_iot/topic_strings.hpp"
 #include "crearts_iot/topics.hpp"
 #include "crearts_iot/telemetry.hpp"
 #include "crearts_iot/attributes.hpp"

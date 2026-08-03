@@ -32,7 +32,7 @@ Capabilities to handle on the **server**:
 
 | Up (device → platform) | Action |
 |------------------------|--------|
-| `status` / `v1/s` | Upsert online/offline, last_seen, LWT |
+| `status` / `v1/s` | LWT offline only; **online** = MQTT session (platform/broker) |
 | `telemetry/data` / `v1/t` | Store time-series samples |
 | `events/post` / `v1/e` | Store events/alarms |
 | `attributes/report` / `v1/a` | Merge **reported** properties |
@@ -322,7 +322,7 @@ UI must be practical, not a generic AI “purple SaaS” template. Prefer a dens
 4. Dashboard shows one-time panel:
    - Broker URI, `client_id`, **access token**, copy buttons
    - Firmware snippet using `CreartsCredentials::createAccessToken(...)`
-5. Device appears `offline` until first retained/online `status`
+5. Device appears `offline` until the platform sees an MQTT session; unclean drop fires LWT on status topic
 6. Token cannot be retrieved later — only rotated
 
 ### Device monitoring
@@ -338,7 +338,7 @@ UI must be practical, not a generic AI “purple SaaS” template. Prefer a dens
 
 Beyond “devices + metrics + properties”, the platform is incomplete without:
 
-1. **Presence / LWT handling** — source of truth for online
+1. **Presence** — online from MQTT session; offline from LWT (`up/status` / `v1/s`) + clean disconnect tracking
 2. **Products** as first-class (not only free-form device rows)
 3. **Access-token MQTT auth** — token at registration; map token→device; provision/revoke broker users
 4. **RPC** invoke + timeout + history

@@ -1,6 +1,9 @@
 #pragma once
 
+#include "crearts_iot/topic_strings.hpp"
+
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 namespace crearts::iot {
@@ -15,6 +18,9 @@ enum class TopicStyle : uint8_t {
 ///
 /// productId / deviceId are non-owning views — the backing storage
 /// (typically CreartsCredentials) must outlive Topics.
+///
+/// String literals live in topic_strings.hpp (`topic_str::dir/cap/op`,
+/// `short_topic`, `full_suffix`).
 class Topics {
 public:
     Topics(std::string_view productId,
@@ -46,6 +52,9 @@ public:
     [[nodiscard]] std::string logsReport() const;
     [[nodiscard]] std::string downstreamSubscribe() const;
 
+    /// True for device→server topics (ignore when subscribed to short `v1/#`).
+    [[nodiscard]] static bool isUplink(std::string_view topic);
+
     [[nodiscard]] static bool isRpcRequest(std::string_view topic);
     [[nodiscard]] static bool isAttributeUpdate(std::string_view topic);
     [[nodiscard]] static bool isAttributeResponse(std::string_view topic);
@@ -59,9 +68,11 @@ private:
     std::string_view deviceId_;
     TopicStyle style_;
 
-    [[nodiscard]] std::string full(const char* direction,
-                                   const char* capability,
-                                   const char* operation) const;
+    [[nodiscard]] std::string full(std::string_view direction,
+                                   std::string_view capability,
+                                   std::string_view operation) const;
+    [[nodiscard]] std::string fullNoOp(std::string_view direction,
+                                       std::string_view capability) const;
 };
 
 } // namespace crearts::iot

@@ -113,26 +113,23 @@ The gateway publishes/subscribes on behalf of children; leaf capability paths ar
 
 ## Presence / Lifecycle
 
-Required for monitoring and stale-session cleanup.
+Presence is owned by the **broker + platform**, not by application publishes from the device.
 
-### Device → Server (publish, retained)
+| Signal | Source |
+|--------|--------|
+| **Online** | MQTT session established (platform / RabbitMQ connection tracking). Device does **not** publish an online status message. |
+| **Offline (unclean)** | MQTT **LWT** on the status topic (broker publishes retained payload). |
+| **Offline (clean)** | Platform observes disconnect / session end (LWT may not fire on clean disconnect). |
+
+### Status topic (LWT only)
 
 ```
 iot/v1/{product_id}/{device_id}/up/status
 ```
 Short: `v1/s`
 
-**Online (after connect, retained, QoS 1):**
-```json
-{
-  "online": true,
-  "ts": 1451649600512,
-  "fw": "2.1.0",
-  "ip": "192.168.1.10"
-}
-```
+**LWT payload (CONNECT will, retained, QoS 1)** — published by the broker when the client drops uncleanly:
 
-**Offline via LWT (broker publishes on unclean disconnect, retained, QoS 1):**
 ```json
 {
   "online": false,
@@ -141,28 +138,19 @@ Short: `v1/s`
 }
 ```
 
-**Graceful offline (device publishes before disconnect, retained, QoS 1):**
-```json
-{
-  "online": false,
-  "ts": 1451649600999,
-  "reason": "shutdown"
-}
-```
-
 | Field | Type | Notes |
 |-------|------|--------|
-| `online` | bool | required |
-| `ts` | number (ms) | device clock; may be 0 in LWT if clock unknown |
-| `reason` | string | `lwt`, `shutdown`, `reboot`, optional |
-| `fw` | string | optional on online |
-| `ip` | string | optional |
+| `online` | bool | always `false` in LWT |
+| `ts` | number (ms) | may be 0 |
+| `reason` | string | `lwt` |
 
-**LWT setup (device MQTT CONNECT):**
-- Topic: full `…/up/status` or short `v1/s` (same style as the rest of the session)
-- Payload: offline LWT JSON above
+**Device CONNECT must set:**
+- Will topic: `…/up/status` or `v1/s` (same topic style as the session)
+- Will payload: offline JSON above
 - Retain: true
 - QoS: 1
+
+Firmware / metadata (fw version, IP) belong in **attributes** or telemetry — not in a fake online status publish.
 
 ---
 
@@ -690,7 +678,7 @@ v1/#
 Or subscribe only to down mnemonics if ACL cannot isolate the session:
 `v1/a/res`, `v1/a/upd`, `v1/r/req`, `v1/r/cres`, `v1/n/res`, `v1/o/upd`, `v1/o/can`.
 
-Also publish retained online status (`…/up/status` or `v1/s`) after connect; configure LWT before CONNECT (same style).
+Configure LWT on the status topic before CONNECT (same topic style). Do **not** publish online/offline status from application code.
 
 ### Server / ingest
 
@@ -732,7 +720,7 @@ Platform must attach `product_id` / `device_id` from the MQTT connection (client
 |---------|-------------|---------------|-----------|
 | Topic structure | `v2/t`, `v2/a` | `/sys/{product}/{device}/...` | Full `iot/v1/{product}/{device}/…` **and** Short `v1/t`, `v1/a`, … |
 | Protocol version | implicit | implicit | in path / short prefix |
-| Presence / LWT | custom | limited | `up/status` / `v1/s` + LWT |
+| Presence / LWT | custom | limited | session online + LWT offline on `up/status` / `v1/s` |
 | RPC | `v2/r/req/+` | `/thing/service/+/+` | `down/rpc/request` / `v1/r/req` + `id` in body |
 | Attributes | `v2/a` | property post | reported/desired (`v1/a`, `v1/a/upd`) |
 | Events | telemetry mix | event post | `up/events/post` / `v1/e` |
@@ -747,7 +735,7 @@ Platform must attach `product_id` / `device_id` from the MQTT connection (client
 
 1. QoS 1 for status, attributes, RPC, OTA, events; QoS 0 only where loss is acceptable.
 2. Batch telemetry to cut MQTT overhead.
-3. Always configure LWT + retained `up/status`.
+3. Configure LWT on status topic; treat platform/broker session as online — do not publish online status from the device.
 4. Enforce RPC timeout (30 s) and map to code `408`.
 5. Validate JSON before publish; reject unknown RPC methods with `404`.
 6. Verify OTA `sha256` and `sign` before flash.
@@ -788,7 +776,7 @@ Do **not** use a direct exchange for device downlink when speaking MQTT — publ
 - [ ] Assign `product_id` / `device_id`; lock ACL to `iot/v1/{product}/{device}/#`
 - [ ] Credentials provider + client id `{product}.{device}`
 - [ ] Topic builder with `TopicStyle::Full` and `TopicStyle::Short`
-- [ ] LWT + retained status (`…/up/status` or `v1/s`)
+- [ ] LWT on status topic (`…/up/status` or `v1/s`); no app-level online/offline publish
 - [ ] Telemetry / events / attributes / RPC builders (`id` in body)
 - [ ] Subscribe `down/#` on connect
 - [ ] RPC handler registry + 30 s timeout + echo `id`
@@ -849,7 +837,7 @@ Client id: `esp32-cam.cam-001`
 
 | Capability | Full | Short |
 |------------|------|-------|
-| Status | `iot/v1/esp32-cam/cam-001/up/status` | `v1/s` |
+| Status (LWT only) | `iot/v1/esp32-cam/cam-001/up/status` | `v1/s` |
 | Telemetry | `…/up/telemetry/data` | `v1/t` |
 | Events | `…/up/events/post` | `v1/e` |
 | Attr report | `…/up/attributes/report` | `v1/a` |

@@ -105,20 +105,6 @@ std::string CreartsCredentials::makeOfflineStatusJson(const char* reason)
                        reason ? reason : "lwt");
 }
 
-std::string CreartsCredentials::makeOnlineStatusJson(std::string_view fw,
-                                                     std::string_view ip)
-{
-    std::string json = R"({"online":true,"ts":0)";
-    if (!fw.empty()) {
-        json += std::format(R"(,"fw":"{}")", fw);
-    }
-    if (!ip.empty()) {
-        json += std::format(R"(,"ip":"{}")", ip);
-    }
-    json += '}';
-    return json;
-}
-
 CreartsCredentials::CreartsCredentials(std::string productId,
                                        std::string deviceId,
                                        std::string username,

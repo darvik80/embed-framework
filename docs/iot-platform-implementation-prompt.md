@@ -67,7 +67,7 @@ Create `components/iot_platform/` per the v1 spec.
 
 6. **Service** (`iot_platform_service.hpp/cpp`)
    - Extend `embed::Service`; wire to `embed::MqttService`
-   - On connect: subscribe `down/#`; publish retained online `up/status`
+   - On connect: subscribe `down/#` (or `v1/#`); presence via session + LWT only (no status publish)
    - Publish helpers: telemetry, events, attributes, RPC response, NTP, OTA version/query/progress, logs
    - Signals: `onAttributeUpdate`, `onAttributeResponse`, `onRpcRequest`, `onOtaUpdate`, `onOtaCancel`, `onNtpResponse` (as needed)
    - RPC success code is **`0`** (not HTTP 200); map unknown method → `404`
@@ -135,7 +135,7 @@ registry.createService<crearts::iot::MetricsTelemetryBridge>();
 
 - [ ] Client ID `{product}.{device}`
 - [ ] Topics match full `iot/v1/...` **and** short `v1/...` for the same API
-- [ ] LWT + online status retained publish (style-aware)
+- [ ] LWT configured on status topic (no app online/offline publish)
 - [ ] Downstream subscribe: `…/down/#` or `v1/#`
 - [ ] Attribute request JSON uses arrays + `"id"`
 - [ ] RPC response `code: 0` and echoes `"id"`

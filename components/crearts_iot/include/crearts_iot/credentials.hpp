@@ -69,8 +69,6 @@ public:
     [[nodiscard]] std::string_view host() const { return host_; }
 
     [[nodiscard]] static std::string makeOfflineStatusJson(const char* reason = "lwt");
-    [[nodiscard]] static std::string makeOnlineStatusJson(std::string_view fw = {},
-                                                          std::string_view ip = {});
 
 private:
     std::string productId_;
