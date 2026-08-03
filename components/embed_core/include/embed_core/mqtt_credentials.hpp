@@ -40,6 +40,18 @@ public:
     /// Used by mbedtls_x509_crt_parse which requires buflen to include '\0'.
     /// Default: 0 (let MqttService fall back to strlen(cert()) + 1).
     virtual size_t certLen() const { return 0; }
+
+    /// Optional Last Will topic. nullptr = no LWT.
+    virtual const char* willTopic() const { return nullptr; }
+
+    /// Optional Last Will payload (not necessarily null-terminated if willMessageLen > 0).
+    virtual const char* willMessage() const { return nullptr; }
+
+    /// Will payload length in bytes. 0 = use strlen(willMessage()).
+    virtual size_t willMessageLen() const { return 0; }
+
+    virtual int willQos() const { return 1; }
+    virtual bool willRetain() const { return true; }
 };
 
 } // namespace embed

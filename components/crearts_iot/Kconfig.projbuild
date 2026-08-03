@@ -1,0 +1,44 @@
+menu "Embed Framework — Crearts IoT"
+
+    config EMBED_CREARTS_IOT_PRODUCT_ID
+        string "Product ID"
+        default "esp32-cam"
+        help
+            Stable product key used in client id and full topics.
+
+    config EMBED_CREARTS_IOT_DEVICE_ID
+        string "Device ID"
+        default ""
+        help
+            Unique device id within the product. Empty = derive from MAC in demos.
+
+    config EMBED_CREARTS_IOT_HOST
+        string "MQTT broker host"
+        default ""
+        help
+            Hostname or IP (no scheme). Empty disables demo auto-wiring.
+
+    config EMBED_CREARTS_IOT_ACCESS_TOKEN
+        string "Device access token"
+        default ""
+        help
+            Token issued when the device is registered in the Crearts dashboard.
+            Used as MQTT username (and password for RabbitMQ compatibility).
+
+    config EMBED_CREARTS_IOT_USE_TLS
+        bool "Use MQTT over TLS (mqtts / port 8883)"
+        default n
+
+    config EMBED_CREARTS_IOT_PORT
+        int "MQTT port (0 = default 1883/8883)"
+        default 0
+        range 0 65535
+
+    config EMBED_CREARTS_IOT_TOPIC_SHORT
+        bool "Use short topics (v1/t, v1/a, ...)"
+        default y
+        help
+            Prefer short topics for constrained devices. Disable for full
+            iot/v1/{product}/{device}/... topics.
+
+endmenu

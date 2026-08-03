@@ -23,37 +23,39 @@ Create `components/iot_platform/` per the v1 spec.
 
 ### Requirements
 
-1. **Credentials Provider** (`iot_platform_credentials.hpp/cpp`)
-   - Implement `embed::MqttCredentials`
-   - Username/password; optional TLS
-   - Client ID: `{product_id}.{device_id}`
-   - Configure LWT: topic `…/up/status`, retained, QoS 1, offline JSON (`online:false`, `reason:"lwt"`)
-   - Store broker URI, username, password, `product_id`, `device_id`
+1. **Credentials Provider**
+   - Primary: `CreartsCredentials::createAccessToken(product, device, host, token, …)`
+   - MQTT username = token, password = token, client id = `{product}.{device}`
+   - LWT on status topic; optional TLS
+   - Lab fallback: `createBasic(...)`
 
 2. **Topic Builder** (`iot_platform_topics.hpp/cpp`)
-   - Pattern: `iot/v1/{product_id}/{device_id}/{direction}/{capability}/{operation}[/{request_id}]`
-   - Methods:
-     - `statusPublish()` → `up/status`
-     - `telemetryPublish()` → `up/telemetry/data`
-     - `eventsPost()` → `up/events/post`
-     - `attributesReport()` → `up/attributes/report`
-     - `attributesRequest(uint32_t id)` → `up/attributes/request/{id}`
-     - `attributesResponseSubscribe()` → `down/attributes/response/+`
-     - `attributesUpdateSubscribe()` → `down/attributes/update`
-     - `rpcRequestSubscribe()` → `down/rpc/request/+`
-     - `rpcResponse(uint32_t id)` → `up/rpc/response/{id}`
-     - `rpcClientRequest(uint32_t id)` → `up/rpc/request/{id}` (optional)
-     - `rpcClientResponseSubscribe()` → `down/rpc/response/+` (optional)
-     - `ntpRequest(uint32_t id)` → `up/ntp/request/{id}`
-     - `ntpResponseSubscribe()` → `down/ntp/response/+`
-     - `otaVersion()` → `up/ota/version`
-     - `otaQuery()` → `up/ota/query`
-     - `otaUpdateSubscribe()` → `down/ota/update`
-     - `otaCancelSubscribe()` → `down/ota/cancel`
-     - `otaProgress()` → `up/ota/progress`
-     - `logsReport()` → `up/logs/report`
-     - `downstreamSubscribe()` → `down/#`
-   - Helpers: `parseRequestId`, `isRpcRequest`, `isAttributeUpdate`, `isAttributeResponse`, `isNtpResponse`, `isOtaUpdate`, `isOtaCancel`
+   - Mirror ThingsBoard `TopicStyle` enum: `Full` | `Short`
+   - **Full:** `iot/v1/{product_id}/{device_id}/{direction}/{capability}/{operation}`
+   - **Short:** `v1/{code}[/{op}]` per spec mapping table (`v1/t`, `v1/a`, `v1/r/req`, …)
+   - Constructor: `Topics(product_id, device_id, TopicStyle style = TopicStyle::Short)`
+   - Methods (same API for both styles; no request id in path):
+     - `statusPublish()` → full `up/status` / short `v1/s`
+     - `telemetryPublish()` → `up/telemetry/data` / `v1/t`
+     - `eventsPost()` → `up/events/post` / `v1/e`
+     - `attributesReport()` → `up/attributes/report` / `v1/a`
+     - `attributesRequest()` → `up/attributes/request` / `v1/a/req`
+     - `attributesResponseSubscribe()` → `down/attributes/response` / `v1/a/res`
+     - `attributesUpdateSubscribe()` → `down/attributes/update` / `v1/a/upd`
+     - `rpcRequestSubscribe()` → `down/rpc/request` / `v1/r/req`
+     - `rpcResponse()` → `up/rpc/response` / `v1/r/res`
+     - `rpcClientRequest()` → `up/rpc/request` / `v1/r/creq` (optional)
+     - `rpcClientResponseSubscribe()` → `down/rpc/response` / `v1/r/cres` (optional)
+     - `ntpRequest()` → `up/ntp/request` / `v1/n/req`
+     - `ntpResponseSubscribe()` → `down/ntp/response` / `v1/n/res`
+     - `otaVersion()` → `up/ota/version` / `v1/o/ver`
+     - `otaQuery()` → `up/ota/query` / `v1/o/q`
+     - `otaUpdateSubscribe()` → `down/ota/update` / `v1/o/upd`
+     - `otaCancelSubscribe()` → `down/ota/cancel` / `v1/o/can`
+     - `otaProgress()` → `up/ota/progress` / `v1/o/p`
+     - `logsReport()` → `up/logs/report` / `v1/l`
+     - `downstreamSubscribe()` → full `…/down/#` / short `v1/#`
+   - Helpers must accept **both** styles: `isRpcRequest`, `isAttributeUpdate`, `isAttributeResponse`, `isNtpResponse`, `isOtaUpdate`, `isOtaCancel` (correlation via JSON `id`)
 
 3. **Telemetry Builder** — from ThingsBoard `TelemetryBuilder` (KV / ts / batch)
 
@@ -69,6 +71,7 @@ Create `components/iot_platform/` per the v1 spec.
    - Publish helpers: telemetry, events, attributes, RPC response, NTP, OTA version/query/progress, logs
    - Signals: `onAttributeUpdate`, `onAttributeResponse`, `onRpcRequest`, `onOtaUpdate`, `onOtaCancel`, `onNtpResponse` (as needed)
    - RPC success code is **`0`** (not HTTP 200); map unknown method → `404`
+   - Correlation: put/echo numeric `"id"` in JSON body for attributes request/response, RPC, NTP
 
 7. **Metrics Telemetry Bridge** — from ThingsBoard bridge pattern
 
@@ -102,7 +105,7 @@ components/iot_platform/
 
 1. Component skeleton (CMake, yml, umbrella header)
 2. Credentials + LWT
-3. Topic builder (`iot/v1/...`)
+3. Topic builder (`TopicStyle::Full` + `Short`, like ThingsBoard)
 4. JSON builders (telemetry, attributes, attribute request arrays)
 5. Service: connect subscribe, status, telemetry, attributes, RPC
 6. Metrics bridge
@@ -115,31 +118,30 @@ components/iot_platform/
 ```cpp
 #include "iot_platform/iot_platform.hpp"
 
-static iot_platform::IotPlatformCredentials creds(
-    "esp32-cam",          // product_id
-    "cam-001",            // device_id
-    "mqtt://rabbitmq:1883",
-    "user",
-    "pass"
-);
+static auto creds = crearts::iot::CreartsCredentials::createAccessToken(
+    "esp32-cam",
+    "cam-001",
+    "rabbitmq.local",
+    "DEVICE_ACCESS_TOKEN",
+    crearts::iot::TopicStyle::Short);
 
-registry.createService<embed::MqttService>(creds);
+registry.createService<embed::MqttService>(*creds);
 registry.createService<embed::MetricsService>();
-registry.createService<iot_platform::IotPlatformService>();
-registry.createService<iot_platform::MetricsTelemetryBridge>();
+registry.createService<crearts::iot::CreartsIotService>(*creds);
+registry.createService<crearts::iot::MetricsTelemetryBridge>();
 ```
 
 ## Testing Checklist
 
 - [ ] Client ID `{product}.{device}`
-- [ ] Topics match `iot/v1/{product}/{device}/...`
-- [ ] LWT + online status retained publish
-- [ ] `down/#` subscribed on connect
-- [ ] Attribute request JSON uses arrays
-- [ ] RPC response `code: 0` on success
-- [ ] Request id parsed from topic
+- [ ] Topics match full `iot/v1/...` **and** short `v1/...` for the same API
+- [ ] LWT + online status retained publish (style-aware)
+- [ ] Downstream subscribe: `…/down/#` or `v1/#`
+- [ ] Attribute request JSON uses arrays + `"id"`
+- [ ] RPC response `code: 0` and echoes `"id"`
+- [ ] Correlation via body `id` (not topic)
 - [ ] Metrics bridge publishes telemetry
-- [ ] NTP request includes request_id segment
+- [ ] NTP request/response include body `id`
 
 ## Code Style
 
@@ -151,10 +153,12 @@ Follow embed-framework conventions (`ServiceRegistry`, Signal/Slot, trivially-co
 |------|-----|
 | ThingsBoard `v2/t` | `iot/v1/{product}/{id}/up/telemetry/data` |
 | ThingsBoard `v2/a` | `…/up/attributes/report` |
-| ThingsBoard `v2/r/req/+` | `…/down/rpc/request/+` |
+| ThingsBoard `v2/r/req/+` | `…/down/rpc/request` + `"id"` in JSON |
 | Alicloud property post | `…/up/attributes/report` |
-| Alicloud service invoke | `…/down/rpc/request/{id}` |
+| Alicloud service invoke | `…/down/rpc/request` + `method` / `id` in JSON |
 | Draft spec `iot/{type}/{id}/…` | `iot/v1/{product_id}/{id}/…` |
+| Id in topic (`…/request/42`) | stable topic + `"id": 42` in body |
+| ThingsBoard short `v2/t` | our short `v1/t` (and full form still supported) |
 
 ## Success Criteria
 
@@ -166,6 +170,8 @@ Follow embed-framework conventions (`ServiceRegistry`, Signal/Slot, trivially-co
 ## Notes
 
 - Flat JSON only — no Alink envelope
-- Correlation only via topic `request_id`
+- Correlation only via JSON field `id` (not in topic)
+- Support both `TopicStyle::Full` and `TopicStyle::Short`; default Short on device
+- Do not mix styles on one connection
 - Start simple; do not port every Alicloud module on day one
 - Read the spec before inventing alternate topic shapes

@@ -167,6 +167,17 @@ esp_err_t MqttService::initMqttClient() {
     mqttCfg.network.timeout_ms = 5000;
     mqttCfg.session.keepalive = CONFIG_EMBED_MQTT_KEEPALIVE;
 
+    if (credentials_->willTopic() && credentials_->willMessage()) {
+        mqttCfg.session.last_will.topic = credentials_->willTopic();
+        mqttCfg.session.last_will.msg = credentials_->willMessage();
+        size_t willLen = credentials_->willMessageLen();
+        mqttCfg.session.last_will.msg_len =
+            willLen > 0 ? static_cast<int>(willLen)
+                        : static_cast<int>(std::strlen(credentials_->willMessage()));
+        mqttCfg.session.last_will.qos = credentials_->willQos();
+        mqttCfg.session.last_will.retain = credentials_->willRetain();
+    }
+
     // TLS: use the built-in Mozilla CA bundle for wss:// and mqtts:// URIs.
     // A custom cert() can override this for self-signed / private CA setups.
     const char* uri = credentials_->brokerUri();

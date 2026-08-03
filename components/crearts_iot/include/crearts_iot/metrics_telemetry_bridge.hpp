@@ -1,0 +1,26 @@
+#pragma once
+
+#include "embed/embed.hpp"
+#include "embed_core/metrics_service.hpp"
+#include "crearts_iot/crearts_iot_service.hpp"
+
+namespace crearts::iot {
+
+/// Forwards embed::MetricsCollected to Crearts IoT telemetry.
+class MetricsTelemetryBridge : public embed::Service {
+public:
+    const char* serviceName() const override { return "CreartsMetricsBridge"; }
+
+    void start() override;
+    void stop() override;
+
+private:
+    CreartsIotService* iot_ = nullptr;
+
+    embed::Slot<embed::MetricsCollected> metricsSlot_{onMetrics, this};
+    static void onMetrics(const embed::MetricsCollected& msg, void* ctx);
+
+    static TelemetryBuilder buildFromMetrics(const embed::MetricsCollected& msg);
+};
+
+} // namespace crearts::iot

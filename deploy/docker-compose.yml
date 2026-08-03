@@ -1,0 +1,51 @@
+services:
+  rabbitmq:
+    image: rabbitmq:4.0-management
+    container_name: crearts-rabbitmq
+    hostname: rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # Management UI  http://localhost:15672
+      - "1883:1883"     # MQTT
+      - "15675:15675"   # MQTT over WebSockets
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-crearts}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-crearts}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  nodered:
+    image: nodered/node-red:4.0
+    container_name: crearts-nodered
+    hostname: nodered
+    restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - "1880:1880"     # Node-RED editor  http://localhost:1880
+    environment:
+      NODERED_CREDENTIAL_SECRET: ${NODERED_CREDENTIAL_SECRET:-crearts-nodered-dev}
+    volumes:
+      - nodered_data:/data
+      - ./nodered/settings.js:/data/settings.js:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1880/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  rabbitmq_data:
+  nodered_data:
