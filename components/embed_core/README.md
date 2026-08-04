@@ -12,7 +12,7 @@ WiFi, MQTT, and metrics services built on `embed`.
 
 ## MQTT
 
-- Pass a long-lived `MqttCredentials` implementation (`PlainMqttCredentials`, `AlicloudCredentials`, …).
+- Pass a long-lived `MqttCredentials` implementation (`CreartsCredentials`, `PlainMqttCredentials`, `AlicloudCredentials`, …).
 - Reconnect is **only** via the service state machine + timer (`CONFIG_EMBED_MQTT_*`). esp-mqtt auto-reconnect is off.
 - `MqttMessageReceived::payload` is `embed::string<767>`; longer payloads truncate with `ESP_LOGW`.
 

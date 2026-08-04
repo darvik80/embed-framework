@@ -112,34 +112,36 @@ deploy/
 
 ## Device MQTT (production model)
 
-Devices do **not** use the admin user. After dashboard registration:
+Devices do **not** use the admin user. After dashboard registration (or lab CLI below):
 
 ```
-broker:     mqtt://<host>:1883
+broker:     mqtt://<lan-host>:1883
 client_id:  {product_id}.{device_id}
 username:   {product_id}.{device_id}
 password:   <access_token>
 ```
 
-Firmware: `CreartsCredentials::createAccessToken(...)`.
+Firmware reads the same values from **menuconfig** (`CONFIG_EMBED_CREARTS_IOT_*`) —
+see root [README.md](../README.md) and [components/crearts_iot/README.md](../components/crearts_iot/README.md).
 
 ### Lab: create device MQTT user on RabbitMQ
 
-Until the platform provisions users automatically, add the device user manually
-(Management UI → Admin → Users, or CLI). Username is `product.device`, password is the token:
+Until the platform provisions users automatically:
 
 ```bash
 docker exec crearts-rabbitmq rabbitmqctl add_user \
   'home.esp32-s3' \
-  'HZhO8crzK29Ah1p_3XjI5c0SNuk-E3xoUzyUQDWLsOM'
+  '<access_token>'
 docker exec crearts-rabbitmq rabbitmqctl set_permissions -p / \
   'home.esp32-s3' '.*' '.*' '.*'
 ```
 
-Without this user, MQTT CONNECT is rejected (`bad username or password` / `0x4`).
+Replace `home.esp32-s3` / `<access_token>` with your product.device and token from menuconfig.
+
+Without this user, MQTT CONNECT fails with **bad username or password** (`0x4`).
 
 Quick broker check from the PC: `mqtt://localhost:1883` with user/pass `crearts`/`crearts`.
-Device firmware must use the **LAN IP** of the PC (not `localhost`).
+Device firmware must use the **LAN IP** of the broker host (not `localhost`).
 
 ## Node-RED / rules bus
 

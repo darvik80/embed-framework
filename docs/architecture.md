@@ -4,9 +4,9 @@
 
 ```
 ┌─────────────────────────────────────────┐
-│ main (demo / product wiring)            │
+│ main (product / demo wiring, Kconfig)   │
 ├─────────────────────────────────────────┤
-│ alicloud_iot / alicloud_oss / vendors   │
+│ crearts_iot / alicloud_* / thingsboard  │
 ├─────────────────────────────────────────┤
 │ embed_extra (camera, mjpeg, oss upload) │
 │ embed_core  (wifi, mqtt, metrics)       │
@@ -16,6 +16,21 @@
 ```
 
 Dependencies point **downward** only. Cloud providers implement `embed::MqttCredentials` and consume `MqttService` signals; they must not become required by `embed` itself.
+
+`main/` selects a cloud path (default: **Crearts** via `CONFIG_EMBED_CREARTS_IOT_*`). Credentials are built once as `static` and passed into `MqttService` + the vendor service.
+
+## Crearts session model
+
+| Concern | Mechanism |
+|---------|-----------|
+| Auth | MQTT `username`/`client_id` = `{product}.{device}`, `password` = access token |
+| Online | MQTT session present (platform tracks CONNECT) |
+| Offline | LWT on status topic (`up/status` / `v1/s`), retained |
+| Reported attrs | Device → `attributes/report` / `v1/a` (flat JSON) |
+| Desired attrs | Platform → `attributes/update` / `v1/a/upd`; device may request on connect |
+| Correlation | JSON field `"id"` (not in topic path) |
+
+Protocol details: [iot-platform-mqtt-spec.md](iot-platform-mqtt-spec.md).
 
 ## Event paths
 
@@ -50,3 +65,11 @@ With `EMBED_THREAD_SAFE=1` (default):
 | Slot connection | `Slot` → `Connection` → pool entry |
 | Camera frame buffers | Camera pipeline (do not redesign without an explicit ownership plan) |
 | Alink modules | `AlicloudService` via `unique_ptr` |
+
+## Config vs source
+
+| Lives in | Examples |
+|----------|----------|
+| `sdkconfig` (local, gitignored) | WiFi password, Crearts access token, broker LAN IP |
+| `sdkconfig.defaults` (committed) | Non-secret defaults, feature toggles |
+| Source | Service graph, topic builders, protocol logic |

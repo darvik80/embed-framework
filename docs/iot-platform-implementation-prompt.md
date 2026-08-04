@@ -1,12 +1,24 @@
 # IoT Platform Implementation Prompt
 
+## Status
+
+Device SDK is implemented as **`components/crearts_iot/`** (not a separate `iot_platform/` tree).
+Use this document when extending the SDK or aligning a new product app with protocol **v1**.
+
+Canonical references:
+- Spec: `docs/iot-platform-mqtt-spec.md`
+- SDK README: `components/crearts_iot/README.md`
+- Platform (Go/React) prompt: `docs/iot-platform-service-prompt.md`
+- Lab broker: `deploy/README.md`
+
 ## Context
 
-You are implementing a standardized IoT platform integration for an ESP32 embedded framework. The platform uses MQTT (RabbitMQ MQTT plugin or any broker) and follows `docs/iot-platform-mqtt-spec.md` (**protocol `v1`**).
+You are implementing or extending a standardized IoT platform integration for an ESP32 embedded framework. The platform uses MQTT (RabbitMQ MQTT plugin or any broker) and follows `docs/iot-platform-mqtt-spec.md` (**protocol `v1`**).
 
 ## Existing Codebase
 
 Reference integrations:
+- `components/crearts_iot/` — **Crearts (current / preferred)**
 - `components/thingsboard/` — ThingsBoard
 - `components/alicloud_iot/` — Alibaba Cloud IoT
 
@@ -16,20 +28,23 @@ Shared patterns:
 - Service (`embed::Service`)
 - JSON builders for telemetry / attributes / RPC
 - Signal/Slot wiring
+- Kconfig (`CONFIG_EMBED_CREARTS_IOT_*`) for host / ids / token — never hardcode tokens in source
 
-## Task
+## Task (historical / extension)
 
-Create `components/iot_platform/` per the v1 spec.
+Originally: create a device SDK per the v1 spec. **Done** as `crearts_iot`.
+When adding features, keep API and topics aligned with the spec and the checklist below.
 
-### Requirements
+### Requirements (contract)
 
 1. **Credentials Provider**
    - Primary: `CreartsCredentials::createAccessToken(product, device, host, token, …)`
    - MQTT username = `{product}.{device}`, password = token, client id = `{product}.{device}`
    - LWT on status topic; optional TLS
    - Lab fallback: `createBasic(...)`
+   - App wiring: values from `CONFIG_EMBED_CREARTS_IOT_*` (menuconfig / local `sdkconfig`)
 
-2. **Topic Builder** (`iot_platform_topics.hpp/cpp`)
+2. **Topic Builder** (`topics.hpp` / `topics.cpp` under `crearts_iot`)
    - Mirror ThingsBoard `TopicStyle` enum: `Full` | `Short`
    - **Full:** `iot/v1/{product_id}/{device_id}/{direction}/{capability}/{operation}`
    - **Short:** `v1/{code}[/{op}]` per spec mapping table (`v1/t`, `v1/a`, `v1/r/req`, …)
@@ -57,7 +72,7 @@ Create `components/iot_platform/` per the v1 spec.
      - `downstreamSubscribe()` → full `…/down/#` / short `v1/#`
    - Helpers must accept **both** styles: `isRpcRequest`, `isAttributeUpdate`, `isAttributeResponse`, `isNtpResponse`, `isOtaUpdate`, `isOtaCancel` (correlation via JSON `id`)
 
-3. **Telemetry Builder** — from ThingsBoard `TelemetryBuilder` (KV / ts / batch)
+3. **Telemetry Builder** — KV / ts / batch
 
 4. **Attribute Builder** — report flat JSON (`add` / `build` / `clear`)
 
@@ -65,7 +80,7 @@ Create `components/iot_platform/` per the v1 spec.
    - Spec v1: `reported` / `desired` as **string arrays** (not CSV `clientKeys`/`sharedKeys`)
    - Support `["*"]` for all keys in a scope
 
-6. **Service** (`iot_platform_service.hpp/cpp`)
+6. **Service** (`CreartsIotService`)
    - Extend `embed::Service`; wire to `embed::MqttService`
    - On connect: subscribe `down/#` (or `v1/#`); presence via session + LWT only (no status publish)
    - Publish helpers: telemetry, events, attributes, RPC response, NTP, OTA version/query/progress, logs
@@ -73,57 +88,59 @@ Create `components/iot_platform/` per the v1 spec.
    - RPC success code is **`0`** (not HTTP 200); map unknown method → `404`
    - Correlation: put/echo numeric `"id"` in JSON body for attributes request/response, RPC, NTP
 
-7. **Metrics Telemetry Bridge** — from ThingsBoard bridge pattern
+7. **Metrics Telemetry Bridge**
 
 8. **Messages** — trivially copyable `embed::Message` types; bulk JSON via fixed buffers / queues per framework rules
 
 9. **CMakeLists.txt** / **idf_component.yml** — `embed`, `embed_core`, `json`
 
-10. **Kconfig** (optional): `product_id`, `device_id`, broker host/port, TLS, username, password
+10. **Kconfig** — `CONFIG_EMBED_CREARTS_IOT_*` (product, device, host, token, TLS, port, topic style)
 
-## Component Layout
+## Component Layout (current)
 
 ```
-components/iot_platform/
-├── include/iot_platform/
-│   ├── iot_platform.hpp
-│   ├── iot_platform_credentials.hpp
-│   ├── iot_platform_topics.hpp
-│   ├── iot_platform_service.hpp
-│   ├── telemetry_builder.hpp
-│   ├── attribute_builder.hpp
-│   ├── attribute_request_builder.hpp
+components/crearts_iot/
+├── include/crearts_iot/
+│   ├── crearts_iot.hpp
+│   ├── credentials.hpp
+│   ├── topics.hpp
+│   ├── topic_strings.hpp
+│   ├── crearts_iot_service.hpp
+│   ├── telemetry.hpp
+│   ├── attributes.hpp
 │   └── metrics_telemetry_bridge.hpp
 ├── src/
 │   └── … (matching .cpp)
 ├── CMakeLists.txt
 ├── idf_component.yml
-└── Kconfig.projbuild
+├── Kconfig.projbuild
+└── README.md
 ```
 
-## Implementation Order
+## Extension order
 
-1. Component skeleton (CMake, yml, umbrella header)
-2. Credentials + LWT
-3. Topic builder (`TopicStyle::Full` + `Short`, like ThingsBoard)
-4. JSON builders (telemetry, attributes, attribute request arrays)
-5. Service: connect subscribe, status, telemetry, attributes, RPC
-6. Metrics bridge
-7. Optional: NTP, OTA, events, logs
-8. Host tests for topics + builders
-9. Wire example in `main/` if requested
+1. Keep topics + builders aligned with spec changes
+2. Service helpers / signals as needed
+3. Host tests for topics + builders
+4. Demo wiring stays in `main/` (Kconfig-driven)
 
 ## Example Wiring
 
 ```cpp
-#include "iot_platform/iot_platform.hpp"
+#include "crearts_iot/crearts_iot.hpp"
+#include "sdkconfig.h"
 
 static auto creds = crearts::iot::CreartsCredentials::createAccessToken(
-    "esp32-cam",
-    "cam-001",
-    "rabbitmq.local",
-    "DEVICE_ACCESS_TOKEN",
-    crearts::iot::TopicStyle::Short);
+    CONFIG_EMBED_CREARTS_IOT_PRODUCT_ID,
+    CONFIG_EMBED_CREARTS_IOT_DEVICE_ID,
+    CONFIG_EMBED_CREARTS_IOT_HOST,
+    CONFIG_EMBED_CREARTS_IOT_ACCESS_TOKEN,
+#ifdef CONFIG_EMBED_CREARTS_IOT_TOPIC_SHORT
+    crearts::iot::TopicStyle::Short
+#else
+    crearts::iot::TopicStyle::Full
+#endif
+);
 
 registry.createService<embed::MqttService>(*creds);
 registry.createService<embed::MetricsService>();
@@ -133,7 +150,7 @@ registry.createService<crearts::iot::MetricsTelemetryBridge>();
 
 ## Testing Checklist
 
-- [ ] Client ID `{product}.{device}`
+- [ ] Client ID `{product}.{device}`; username same; password = token
 - [ ] Topics match full `iot/v1/...` **and** short `v1/...` for the same API
 - [ ] LWT configured on status topic (no app online/offline publish)
 - [ ] Downstream subscribe: `…/down/#` or `v1/#`
@@ -142,6 +159,7 @@ registry.createService<crearts::iot::MetricsTelemetryBridge>();
 - [ ] Correlation via body `id` (not topic)
 - [ ] Metrics bridge publishes telemetry
 - [ ] NTP request/response include body `id`
+- [ ] Credentials come from `CONFIG_EMBED_CREARTS_IOT_*` (not source literals)
 
 ## Code Style
 

@@ -14,15 +14,17 @@ ESP32-S3 · ESP-IDF ≥5.5 · C++20 framework (`-fno-exceptions`, RTTI in `embed
 ## Layering
 
 ```
-main/                  # app wiring only (create services, credentials)
+main/                  # app wiring only (create services, credentials from Kconfig)
 components/embed/      # framework primitives — no product logic
 components/embed_core/ # WiFi, MQTT, Metrics
 components/embed_extra/# Camera, MJPEG, OSS upload
+components/crearts_iot/# Crearts IoT Platform device SDK (preferred cloud path)
 components/alicloud_*/ # cloud providers (C + thin C++ wrappers OK)
 components/<vendor>/   # other providers implementing embed::MqttCredentials etc.
 ```
 
 Do not put product/demo services in framework components. Demo services live in `main/`.
+Secrets (WiFi password, Crearts access token) → `sdkconfig` / menuconfig, not source literals.
 
 ## Service pattern
 

@@ -1,31 +1,42 @@
 # embed-framework
 
-C++20 service framework for **ESP-IDF ≥ 5.5** (ESP32-S3). Provides a fixed-size `ServiceRegistry`, Signal/Slot messaging on a dedicated `esp_event` loop, CRTP state machines, and layered components for WiFi/MQTT, camera, and Alibaba Cloud.
+C++20 service framework for **ESP-IDF ≥ 5.5** (ESP32-S3): fixed-size `ServiceRegistry`, Signal/Slot on a dedicated `esp_event` loop, CRTP state machines, and cloud device SDKs (Crearts IoT, Alibaba Cloud, ThingsBoard).
 
 ## Quick start
 
 ```bash
 idf.py set-target esp32s3
+idf.py menuconfig   # Embed Framework → WiFi + Crearts IoT
 idf.py build flash monitor
 ```
 
-Configure WiFi / MQTT / Alicloud secrets via `idf.py menuconfig` (menus under **Embed Framework**) or `sdkconfig.defaults`.
+**Secrets and site config** live in local `sdkconfig` (gitignored). Commit only `sdkconfig.defaults` (no access tokens).
+
+| Menuconfig path | Keys |
+|-----------------|------|
+| Embed Framework — WiFi | `CONFIG_EMBED_WIFI_*` |
+| Embed Framework — Crearts IoT | `CONFIG_EMBED_CREARTS_IOT_*` (product, device, host, **token**, TLS, topics) |
+| Embed Framework — MQTT / Metrics | `CONFIG_EMBED_MQTT_*`, `CONFIG_EMBED_METRICS_*` |
+
+Demo `main/` wires **Crearts** by default: WiFi → MQTT → `CreartsIotService` (+ metrics bridge, device info attributes, RPC demo).
 
 ## Architecture
 
 ```
-main/                     app wiring (create services, credentials)
-components/embed/         framework: Service, Registry, EventLoop, Signal/Slot, StateMachine
-components/embed_core/    WifiService, MqttService, MetricsService
-components/embed_extra/   CameraService, MjpegService, OssUploadService
-components/alicloud_*     Alibaba IoT / OSS
-components/thingsboard/   stub (incomplete)
+main/                      app wiring (services, Kconfig → credentials)
+components/embed/          Service, Registry, EventLoop, Signal/Slot, StateMachine
+components/embed_core/     WifiService, MqttService, MetricsService
+components/embed_extra/    Camera, MJPEG, OSS upload
+components/crearts_iot/    Crearts IoT Platform device SDK (protocol v1)
+components/alicloud_*      Alibaba IoT / OSS
+components/thingsboard/    ThingsBoard MQTT device API
+deploy/                    RabbitMQ + Node-RED lab stack
 ```
 
 ### Lifecycle
 
 1. `embed::EventLoop::instance().init()`
-2. Create credentials that **outlive** MQTT (`static` in `app_main`)
+2. Build credentials that **outlive** MQTT (`static` in `app_main`, from Kconfig)
 3. `registry.createService<T>(...)` for each service
 4. `registry.startAll()` — peers exist; connect `Slot`s inside `start()`
 5. Idle the main task; work runs on the embed event task / FreeRTOS tasks
@@ -51,6 +62,42 @@ Prefer POD and `embed::string<N>`. Do **not** put owning buffers (camera frames,
 | `EMBED_MAX_EVENT_DATA_SIZE` | 1024 | Max `Message` size |
 | `EMBED_THREAD_SAFE` | 1 | Mutexes on registry / connection pool |
 
+## Crearts IoT (default demo path)
+
+Protocol: [docs/iot-platform-mqtt-spec.md](docs/iot-platform-mqtt-spec.md) (`v1`).
+
+Device MQTT auth (RabbitMQ):
+
+```
+client_id = username = {product_id}.{device_id}
+password  = <access_token>
+```
+
+Presence: **online** = MQTT session; **offline** = LWT on status (`up/status` / `v1/s`).  
+Attributes: **reported** from device on connect; **desired** from dashboard via `attributes/update`.
+
+```cpp
+// Values from CONFIG_EMBED_CREARTS_IOT_* (menuconfig)
+static auto creds = crearts::iot::CreartsCredentials::createAccessToken(
+    CONFIG_EMBED_CREARTS_IOT_PRODUCT_ID,
+    CONFIG_EMBED_CREARTS_IOT_DEVICE_ID,
+    CONFIG_EMBED_CREARTS_IOT_HOST,
+    CONFIG_EMBED_CREARTS_IOT_ACCESS_TOKEN,
+    /* TopicStyle from CONFIG_EMBED_CREARTS_IOT_TOPIC_SHORT */);
+```
+
+Lab broker + Node-RED: [deploy/README.md](deploy/README.md).  
+SDK details: [components/crearts_iot/README.md](components/crearts_iot/README.md).
+
+Until the platform provisions broker users, create the MQTT user manually:
+
+```bash
+docker exec crearts-rabbitmq rabbitmqctl add_user 'home.esp32-s3' '<access_token>'
+docker exec crearts-rabbitmq rabbitmqctl set_permissions -p / 'home.esp32-s3' '.*' '.*' '.*'
+```
+
+Point the device at the broker **LAN IP** (not `localhost`). On Podman/WSL, see deploy README for port publish / `fix-podman-ports.ps1`.
+
 ## Components
 
 | Component | Role |
@@ -58,6 +105,7 @@ Prefer POD and `embed::string<N>`. Do **not** put owning buffers (camera frames,
 | [embed](components/embed/README.md) | Core framework |
 | [embed_core](components/embed_core/README.md) | WiFi, MQTT, metrics |
 | embed_extra | Camera / MJPEG / OSS upload |
+| [crearts_iot](components/crearts_iot/README.md) | Crearts IoT Platform device SDK |
 | alicloud_iot | Alink modules (things, OTA, NTP, …) |
 | alicloud_oss | OSS client + `OssService` |
 | [thingsboard](components/thingsboard/README.md) | ThingsBoard MQTT device API |
@@ -94,10 +142,17 @@ Device app (optional): `test_apps/embed_unity`.
 
 See [docs/ci.md](docs/ci.md). Workflows: `.gitea/workflows/ci.yml` (mirrored under `.github/workflows/`).
 
-## Further reading
+## Documentation map
 
-- [Architecture notes](docs/architecture.md)
-- [OTA](docs/ota.md)
-- [CI](docs/ci.md)
-- [TODO](TODO.md)
-- Agent skills: `.cursor/skills/embed-framework`, `embed-new-service`, `embed-new-component`
+| Doc | Contents |
+|-----|----------|
+| [docs/architecture.md](docs/architecture.md) | Layering, events, ownership |
+| [docs/iot-platform-mqtt-spec.md](docs/iot-platform-mqtt-spec.md) | Crearts MQTT protocol v1 |
+| [docs/iot-platform-service-prompt.md](docs/iot-platform-service-prompt.md) | Platform (Go/React/Node-RED) design prompt |
+| [docs/iot-platform-implementation-prompt.md](docs/iot-platform-implementation-prompt.md) | Device SDK notes (implemented as `crearts_iot`) |
+| [deploy/README.md](deploy/README.md) | RabbitMQ + Node-RED lab; Podman/Synology tips |
+| [docs/ota.md](docs/ota.md) | OTA partitions |
+| [docs/testing.md](docs/testing.md) / [docs/ci.md](docs/ci.md) | Tests & CI |
+| [TODO.md](TODO.md) | Backlog |
+
+Agent skills: `.cursor/skills/embed-framework`, `embed-new-service`, `embed-new-component`.
