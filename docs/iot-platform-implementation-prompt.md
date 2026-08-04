@@ -25,7 +25,7 @@ Create `components/iot_platform/` per the v1 spec.
 
 1. **Credentials Provider**
    - Primary: `CreartsCredentials::createAccessToken(product, device, host, token, …)`
-   - MQTT username = token, password = token, client id = `{product}.{device}`
+   - MQTT username = `{product}.{device}`, password = token, client id = `{product}.{device}`
    - LWT on status topic; optional TLS
    - Lab fallback: `createBasic(...)`
 

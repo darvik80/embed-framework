@@ -62,23 +62,26 @@ void MqttService::onWifiDisconnected(const WifiDisconnected& /*msg*/, void* ctx)
 // ── State transition handlers ───────────────────────────────────────────
 
 void MqttService::onStateChanged(const TransitionTo<MqttConnectingState>&) {
-    ESP_LOGI("MqttSM", "[%s] -> Connecting", currentStateName());
+    ESP_LOGI("MqttSM", "-> Connecting (retry=%d)", retryCount_);
 
-    if (!mqttInitialized_) {
-        esp_err_t ret = initMqttClient();
-        if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to init MQTT client: %s", esp_err_to_name(ret));
-            handle(MqttErrorEvent{.error = ret});
-            return;
-        }
+    // Recreate the client on every connect/reconnect attempt. Calling
+    // esp_mqtt_client_start() again after a failed session returns ESP_FAIL
+    // ("Client has started") when auto-reconnect is disabled.
+    if (mqttInitialized_) {
+        destroyMqttClient();
     }
 
-    if (client_) {
-        esp_err_t ret = esp_mqtt_client_start(client_);
-        if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to start MQTT client: %s", esp_err_to_name(ret));
-            handle(MqttErrorEvent{.error = ret});
-        }
+    esp_err_t ret = initMqttClient();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to init MQTT client: %s", esp_err_to_name(ret));
+        handle(MqttErrorEvent{.error = ret});
+        return;
+    }
+
+    ret = esp_mqtt_client_start(client_);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start MQTT client: %s", esp_err_to_name(ret));
+        handle(MqttErrorEvent{.error = ret});
     }
 }
 
@@ -276,15 +279,25 @@ void MqttService::processMqttEvent(int32_t event_id, void* event_data) {
     case MQTT_EVENT_ERROR:
         ESP_LOGE(TAG, "MQTT error event");
         if (event->error_handle) {
-            if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
+            switch (event->error_handle->error_type) {
+            case MQTT_ERROR_TYPE_TCP_TRANSPORT:
                 ESP_LOGE(TAG, "Transport error: esp_tls=%d, tls_stack=%d, sock_errno=%d",
                          event->error_handle->esp_tls_last_esp_err,
                          event->error_handle->esp_tls_stack_err,
                          event->error_handle->esp_transport_sock_errno);
-            } else if (event->error_handle->error_type == MQTT_ERROR_TYPE_CONNECTION_REFUSED) {
+                break;
+            case MQTT_ERROR_TYPE_CONNECTION_REFUSED:
                 ESP_LOGE(TAG, "Connection refused: 0x%x",
                          event->error_handle->connect_return_code);
+                break;
+            default:
+                ESP_LOGE(TAG, "MQTT error_type=%d", event->error_handle->error_type);
+                break;
             }
+        }
+        // Ensure SM leaves Connecting even if DISCONNECTED is delayed/missing.
+        if (std::holds_alternative<MqttConnectingState*>(getCurrentState())) {
+            handle(MqttBrokerDisconnectedEvent{});
         }
         break;
 

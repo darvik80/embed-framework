@@ -4,26 +4,40 @@
 #include "embed_core/metrics_service.hpp"
 #include "embed_core/mqtt_credentials.hpp"
 #include "embed_core/mqtt_service.hpp"
-#include "embed_extra/camera_service.hpp"
-#include "embed_extra/mjpeg_service.hpp"
-#include "alicloud_oss/oss_service.hpp"
-#include "alicloud_iot/alicloud_credentials.hpp"
-#include "alicloud_iot/alicloud_service.hpp"
-#include "thingsboard/credentials.hpp"
-#include "thingsboard/thingsboard_service.hpp"
-#include "thingsboard/metrics_telemetry_bridge.hpp"
-#include "thingsboard/telemetry.hpp"
+#include "crearts_iot/crearts_iot.hpp"
 
 #include "esp_tls.h"
 #include "esp_log.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_task_wdt.h"
+#include "esp_app_desc.h"
+#include "esp_chip_info.h"
+#include "esp_mac.h"
 #include "hal/gpio_types.h"
 #include "driver/gpio.h"
-#include "embed_extra/oss_upload_service.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "sdkconfig.h"
+
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+
+namespace {
+
+constexpr char TAG[] = "Main";
+
+/// Static reported attributes (app identity). version / app-name prefer
+/// esp_app_desc; these label the product face of the firmware.
+constexpr char kAppModel[] = "ESP32-S3";
+constexpr char kAppName[] = "embed-framework";
+constexpr char kAppVendor[] = "crearts";
+constexpr char kAppProtocol[] = "iot/v1";
+
+} // namespace
+
 // ── Messages ────────────────────────────────────────────────────────────
 
 struct LedStateChanged {
@@ -134,26 +148,208 @@ private:
     esp_timer_handle_t timer_ = nullptr;
 };
 
-// ── PlainMqttCredentials ────────────────────────────────────────────────
+// ── CreartsDeviceInfo ───────────────────────────────────────────────────
 
-/// Simple MqttCredentials implementation for plain MQTT brokers.
-/// Stores URI, client ID, username, and password in fixed-size strings.
-class PlainMqttCredentials : public embed::MqttCredentials {
+/// On each MQTT connect: publish **reported** static attrs (feeds dashboard
+/// reported form), request **desired**, and apply desired pushes from the
+/// device-page editor (`attributes/update`).
+class CreartsDeviceInfo : public embed::Service {
 public:
-    PlainMqttCredentials(const char* uri, const char* clientId,
-                         const char* user, const char* pass)
-        : uri_(uri), clientId_(clientId), username_(user), password_(pass) {}
+    const char* serviceName() const override { return "CreartsDeviceInfo"; }
 
-    const char* brokerUri() const override { return uri_.c_str(); }
-    const char* clientId() const override { return clientId_.c_str(); }
-    const char* username() const override { return username_.c_str(); }
-    const char* password() const override { return password_.c_str(); }
+    void start() override {
+        auto& reg = embed::ServiceRegistry::instance();
+        iot_ = reg.getService<crearts::iot::CreartsIotService>();
+        mqtt_ = reg.getService<embed::MqttService>();
+        if (!iot_ || !mqtt_) {
+            ESP_LOGE("CreartsInfo", "CreartsIotService/MqttService missing");
+            return;
+        }
+        connectedSlot_.connect(mqtt_->onConnected);
+        attrUpdateSlot_.connect(iot_->onAttributeUpdate);
+        attrResponseSlot_.connect(iot_->onAttributeResponse);
+        ESP_LOGI("CreartsInfo", "Will report/request attributes on MQTT connect");
+    }
+
+    void stop() override {
+        connectedSlot_.disconnect();
+        attrUpdateSlot_.disconnect();
+        attrResponseSlot_.disconnect();
+        iot_ = nullptr;
+        mqtt_ = nullptr;
+    }
 
 private:
-    embed::string<127> uri_;
-    embed::string<63> clientId_;
-    embed::string<63> username_;
-    embed::string<63> password_;
+    crearts::iot::CreartsIotService* iot_ = nullptr;
+    embed::MqttService* mqtt_ = nullptr;
+    embed::Slot<embed::MqttConnected> connectedSlot_{onConnected, this};
+    embed::Slot<crearts::iot::AttributeUpdate> attrUpdateSlot_{onAttrUpdate, this};
+    embed::Slot<crearts::iot::AttributeResponse> attrResponseSlot_{onAttrResponse, this};
+
+    static const char* chipModelName(esp_chip_model_t model) {
+        switch (model) {
+        case CHIP_ESP32: return "ESP32";
+        case CHIP_ESP32S2: return "ESP32-S2";
+        case CHIP_ESP32S3: return "ESP32-S3";
+        case CHIP_ESP32C3: return "ESP32-C3";
+#ifdef CHIP_ESP32C2
+        case CHIP_ESP32C2: return "ESP32-C2";
+#endif
+#ifdef CHIP_ESP32C6
+        case CHIP_ESP32C6: return "ESP32-C6";
+#endif
+#ifdef CHIP_ESP32H2
+        case CHIP_ESP32H2: return "ESP32-H2";
+#endif
+#ifdef CHIP_ESP32P4
+        case CHIP_ESP32P4: return "ESP32-P4";
+#endif
+        default: return CONFIG_IDF_TARGET;
+        }
+    }
+
+    static void publishReported(crearts::iot::CreartsIotService* iot) {
+        const esp_app_desc_t* app = esp_app_get_description();
+        const char* version = (app && app->version[0]) ? app->version : "0.0.0";
+        const char* appName = (app && app->project_name[0]) ? app->project_name : kAppName;
+        const char* idfVer = (app && app->idf_ver[0]) ? app->idf_ver : "";
+
+        esp_chip_info_t chip{};
+        esp_chip_info(&chip);
+
+        uint8_t mac[6]{};
+        esp_read_mac(mac, ESP_MAC_WIFI_STA);
+        char macStr[18];
+        std::snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+                      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+        // Flat object = reported scope (dashboard Properties → reported form).
+        crearts::iot::AttributeBuilder attrs;
+        attrs.add("version", version)
+            .add("firmwareVersion", version)
+            .add("model", kAppModel)
+            .add("appName", appName)
+            .add("vendor", kAppVendor)
+            .add("protocol", kAppProtocol)
+            .add("productId", CONFIG_EMBED_CREARTS_IOT_PRODUCT_ID)
+            .add("deviceId", CONFIG_EMBED_CREARTS_IOT_DEVICE_ID)
+            .add("chip", chipModelName(chip.model))
+            .add("chipCores", static_cast<int>(chip.cores))
+            .add("idfVersion", idfVer)
+            .add("mac", macStr);
+
+        const int msgId = iot->publishAttributes(attrs, 1);
+        ESP_LOGI("CreartsInfo",
+                 "reported attrs msg_id=%d version=%s model=%s app=%s",
+                 msgId, version, kAppModel, appName);
+        iot->publishOtaVersion(version, "main", 1);
+    }
+
+    static void onConnected(const embed::MqttConnected&, void* ctx) {
+        auto* self = static_cast<CreartsDeviceInfo*>(ctx);
+        if (!self->iot_) return;
+
+        publishReported(self->iot_);
+
+        // Pull desired from platform (device-page desired form).
+        crearts::iot::AttributeRequestBuilder req;
+        req.desiredAll();
+        uint32_t reqId = 0;
+        const int msgId = self->iot_->requestAttributes(req, reqId, 1);
+        ESP_LOGI("CreartsInfo", "desired request msg_id=%d id=%lu",
+                 msgId, static_cast<unsigned long>(reqId));
+    }
+
+    static void onAttrUpdate(const crearts::iot::AttributeUpdate& upd, void* ctx) {
+        auto* self = static_cast<CreartsDeviceInfo*>(ctx);
+        // Desired push from dashboard Properties → desired form.
+        auto parsed = crearts::iot::parseAttributeUpdate(
+            std::string_view(upd.payload.c_str(), upd.payload.size()));
+        ESP_LOGI("CreartsInfo", "desired update: %s", parsed.desiredJson.c_str());
+        (void)self;
+        // App-specific apply hooks go here (e.g. enable flag, intervals).
+    }
+
+    static void onAttrResponse(const crearts::iot::AttributeResponse& res, void* /*ctx*/) {
+        auto parsed = crearts::iot::parseAttributeResponse(
+            std::string_view(res.payload.c_str(), res.payload.size()));
+        ESP_LOGI("CreartsInfo", "attr response id=%lu reported=%s desired=%s",
+                 static_cast<unsigned long>(res.requestId),
+                 parsed.reportedJson.c_str(),
+                 parsed.desiredJson.c_str());
+    }
+};
+
+// ── CreartsRpcDemo ──────────────────────────────────────────────────────
+
+/// Handles platform RPC; built-in `reboot` (+ optional delayMs), else echoes ok.
+class CreartsRpcDemo : public embed::Service {
+public:
+    const char* serviceName() const override { return "CreartsRpcDemo"; }
+
+    void start() override {
+        auto* iot = embed::ServiceRegistry::instance()
+                        .getService<crearts::iot::CreartsIotService>();
+        if (!iot) {
+            ESP_LOGE("CreartsRpc", "CreartsIotService not found");
+            return;
+        }
+        iot_ = iot;
+        rpcSlot_.connect(iot->onRpcRequest);
+        ESP_LOGI("CreartsRpc", "RPC demo listening (reboot supported)");
+    }
+
+    void stop() override {
+        rpcSlot_.disconnect();
+        iot_ = nullptr;
+    }
+
+private:
+    crearts::iot::CreartsIotService* iot_ = nullptr;
+    embed::Slot<crearts::iot::RpcRequest> rpcSlot_{onRpc, this};
+
+    static int parseDelayMs(const char* params) {
+        if (!params) return 0;
+        const char* p = std::strstr(params, "delayMs");
+        if (!p) return 0;
+        p = std::strchr(p, ':');
+        if (!p) return 0;
+        return std::atoi(p + 1);
+    }
+
+    static void rebootTask(void* arg) {
+        const auto delayMs = reinterpret_cast<uintptr_t>(arg);
+        if (delayMs > 0) {
+            vTaskDelay(pdMS_TO_TICKS(delayMs));
+        }
+        ESP_LOGW("CreartsRpc", "Rebooting now");
+        esp_restart();
+    }
+
+    static void onRpc(const crearts::iot::RpcRequest& req, void* ctx) {
+        auto* self = static_cast<CreartsRpcDemo*>(ctx);
+        ESP_LOGI("CreartsRpc", "RPC id=%lu method=%s params=%s",
+                 static_cast<unsigned long>(req.requestId),
+                 req.method.c_str(),
+                 req.params.c_str());
+        if (!self->iot_) return;
+
+        if (req.method == "reboot") {
+            int delayMs = parseDelayMs(req.params.c_str());
+            if (delayMs < 0) delayMs = 0;
+            if (delayMs > 60000) delayMs = 60000;
+            self->iot_->respondRpc(req.requestId, 0, "ok",
+                                   "{\"rebooting\":true}");
+            // Respond first, then reboot from a task so MQTT can flush.
+            xTaskCreate(rebootTask, "rpc_reboot", 2048,
+                        reinterpret_cast<void*>(static_cast<uintptr_t>(delayMs > 0 ? delayMs : 500)),
+                        5, nullptr);
+            return;
+        }
+
+        self->iot_->respondRpc(req.requestId, 0, "ok",
+                               req.params.empty() ? "{}" : req.params.c_str());
+    }
 };
 
 // ── MonitorService ──────────────────────────────────────────────────────
@@ -164,14 +360,10 @@ public:
 
     void start() override {
         auto& reg = embed::ServiceRegistry::instance();
-        auto* blink = reg.getService<BlinkService>();
-        auto* button = reg.getService<ButtonSimService>();
         auto* wifi = reg.getService<embed::WifiService>();
         auto* metrics = reg.getService<embed::MetricsService>();
         auto* mqtt = reg.getService<embed::MqttService>();
 
-        if (blink) led_slot_.connect(blink->onLedChanged);
-        if (button) button_slot_.connect(button->onButtonPressed);
         if (wifi) {
             wifi_connected_slot_.connect(wifi->onConnected);
             wifi_disconnected_slot_.connect(wifi->onDisconnected);
@@ -182,20 +374,11 @@ public:
             mqtt_disconnected_slot_.connect(mqtt->onDisconnected);
             mqtt_message_slot_.connect(mqtt->onMessage);
         }
-        ESP_LOGI("Monitor", "slots connected: blink=%d button=%d wifi=%d metrics=%d mqtt=%d",
-                 blink != nullptr, button != nullptr, wifi != nullptr,
-                 metrics != nullptr, mqtt != nullptr);
+        ESP_LOGI("Monitor", "slots connected: wifi=%d metrics=%d mqtt=%d",
+                 wifi != nullptr, metrics != nullptr, mqtt != nullptr);
     }
 
 private:
-    static void onLedChanged(const LedStateChanged& msg, void* /*ctx*/) {
-        ESP_LOGI("Monitor", "LED GPIO %d -> %s", msg.gpio, msg.on ? "ON" : "OFF");
-    }
-
-    static void onButton(const ButtonPressed& msg, void* /*ctx*/) {
-        ESP_LOGI("Monitor", "Button GPIO %d, level=%d", msg.gpio, msg.level);
-    }
-
     static void onWifiConnected(const embed::WifiConnected& msg, void* /*ctx*/) {
         ESP_LOGI("Monitor", "WiFi CONNECTED, IP: %s", msg.ip.c_str());
     }
@@ -222,8 +405,6 @@ private:
         ESP_LOGI("Monitor", "MQTT MSG: topic=%s len=%u", msg.topic.c_str(), msg.payload.size());
     }
 
-    embed::Slot<LedStateChanged> led_slot_{onLedChanged, this};
-    embed::Slot<ButtonPressed> button_slot_{onButton, this};
     embed::Slot<embed::WifiConnected> wifi_connected_slot_{onWifiConnected, this};
     embed::Slot<embed::WifiDisconnected> wifi_disconnected_slot_{onWifiDisconnected, this};
     embed::Slot<embed::MetricsCollected> metrics_slot_{onMetricsCollected, this};
@@ -235,114 +416,86 @@ private:
 // ── app_main ────────────────────────────────────────────────────────────
 
 extern "C" void app_main() {
-    ESP_LOGI("Main", "embed-framework demo starting...");
+    ESP_LOGI(TAG, "embed-framework → Crearts IoT Platform");
 
     esp_err_t ret = esp_tls_init_global_ca_store();
-    if (ret != ESP_OK)
-    {
-        ESP_LOGE("app", "Failed to init global CA store: %s", esp_err_to_name(ret));
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to init global CA store: %s", esp_err_to_name(ret));
         return;
     }
 
-    // // Feed RTC WDT before heavy CRT bundle loading to prevent watchdog reset
-    // esp_task_wdt_reset();
-    ESP_LOGI("Main", "Loading CRT bundle (may take a few seconds)...");
+    ESP_LOGI(TAG, "Loading CRT bundle...");
     ret = esp_crt_bundle_attach(NULL);
-    if (ret != ESP_OK)
-    {
-        ESP_LOGE("app", "Failed to set CA bundle: %s", esp_err_to_name(ret));
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to set CA bundle: %s", esp_err_to_name(ret));
         return;
     }
-    ESP_LOGI("Main", "CRT bundle loaded successfully");
 
-    // 1. Initialize the event loop
     embed::EventLoop::instance().init();
-    ESP_LOGI("Main", "event loop initialized");
-    // 2. Create MQTT credentials (static — must outlive MqttService)
-    //    Prefer ThingsBoard Access Token if configured; else Alicloud; else plain MQTT.
-    static auto tbCreds = thingsboard::ThingsBoardCredentials::createAccessToken(
-        CONFIG_EMBED_THINGSBOARD_HOST,
-        CONFIG_EMBED_THINGSBOARD_ACCESS_TOKEN,
-#ifdef CONFIG_EMBED_THINGSBOARD_USE_TLS
+
+    if (CONFIG_EMBED_CREARTS_IOT_HOST[0] == '\0' ||
+        CONFIG_EMBED_CREARTS_IOT_ACCESS_TOKEN[0] == '\0' ||
+        CONFIG_EMBED_CREARTS_IOT_PRODUCT_ID[0] == '\0' ||
+        CONFIG_EMBED_CREARTS_IOT_DEVICE_ID[0] == '\0') {
+        ESP_LOGE(TAG,
+                 "Crearts Kconfig incomplete — set EMBED_CREARTS_IOT_* "
+                 "(product/device/host/token) in menuconfig");
+        return;
+    }
+
+    const auto topicStyle =
+#ifdef CONFIG_EMBED_CREARTS_IOT_TOPIC_SHORT
+        crearts::iot::TopicStyle::Short;
+#else
+        crearts::iot::TopicStyle::Full;
+#endif
+
+    static auto creartsCreds = crearts::iot::CreartsCredentials::createAccessToken(
+        CONFIG_EMBED_CREARTS_IOT_PRODUCT_ID,
+        CONFIG_EMBED_CREARTS_IOT_DEVICE_ID,
+        CONFIG_EMBED_CREARTS_IOT_HOST,
+        CONFIG_EMBED_CREARTS_IOT_ACCESS_TOKEN,
+        topicStyle,
+#ifdef CONFIG_EMBED_CREARTS_IOT_USE_TLS
         true,
 #else
         false,
 #endif
-        static_cast<uint16_t>(CONFIG_EMBED_THINGSBOARD_PORT)
+        static_cast<uint16_t>(CONFIG_EMBED_CREARTS_IOT_PORT));
+
+    if (!creartsCreds || !creartsCreds->isValid()) {
+        ESP_LOGE(TAG, "Crearts credentials invalid — abort");
+        return;
+    }
+
+    ESP_LOGI(TAG, "Crearts MQTT client_id=%s uri=%s style=%s",
+             creartsCreds->clientId(), creartsCreds->brokerUri(),
+#ifdef CONFIG_EMBED_CREARTS_IOT_TOPIC_SHORT
+             "short"
+#else
+             "full"
+#endif
     );
 
-    static auto aliCreds = alicloud::iot::AlicloudCredentials::create(
-        CONFIG_EMBED_ALICLOUD_PRODUCT_KEY,
-        CONFIG_EMBED_ALICLOUD_DEVICE_NAME,
-        CONFIG_EMBED_ALICLOUD_DEVICE_SECRET
-    );
-
-    static PlainMqttCredentials plainCreds(
-        CONFIG_EMBED_MQTT_BROKER_URI,
-        CONFIG_EMBED_MQTT_CLIENT_ID,
-        CONFIG_EMBED_MQTT_USERNAME,
-        CONFIG_EMBED_MQTT_PASSWORD
-    );
-
-    embed::MqttCredentials& mqttCreds =
-        (tbCreds && tbCreds->isValid())
-            ? static_cast<embed::MqttCredentials&>(*tbCreds)
-            : (aliCreds && aliCreds->isValid())
-                ? static_cast<embed::MqttCredentials&>(*aliCreds)
-                : static_cast<embed::MqttCredentials&>(plainCreds);
-
-    if (tbCreds && tbCreds->isValid())
-        ESP_LOGI("Main", "Using ThingsBoard Access Token credentials");
-    else if (aliCreds && aliCreds->isValid())
-        ESP_LOGI("Main", "Using Alibaba Cloud IoT credentials");
-    else
-        ESP_LOGW("Main", "Using plain MQTT credentials (cloud not configured)");
-
-    // 3. Create services
-    ESP_LOGI("Main", "Free heap before services: %lu", esp_get_free_heap_size());
     auto& registry = embed::ServiceRegistry::instance();
-    //registry.createService<BlinkService>(GPIO_NUM_2);
-    //registry.createService<ButtonSimService>(GPIO_NUM_0);
     registry.createService<embed::WifiService>();
     registry.createService<embed::MetricsService>();
-    registry.createService<embed::MqttService>(mqttCreds);
-    registry.createService<thingsboard::ThingsBoardService>(
-        CONFIG_EMBED_THINGSBOARD_TOPIC_SHORT
-            ? thingsboard::TopicStyle::Short
-            : thingsboard::TopicStyle::Standard);
-    registry.createService<thingsboard::MetricsTelemetryBridge>();
-    //registry.createService<alicloud::iot::AlicloudService>();
-    //registry.createService<embed::CameraService>();
-    //registry.createService<embed::MjpegService>();
-    //registry.createService<embed::OssService>();
-    // OssUploadService disabled — MjpegService is the sole frame consumer
-    //registry.createService<embed::OssUploadService>();
-    //registry.createService<MonitorService>();
+    registry.createService<embed::MqttService>(*creartsCreds);
+    registry.createService<crearts::iot::CreartsIotService>(*creartsCreds);
+    registry.createService<crearts::iot::MetricsTelemetryBridge>();
+    registry.createService<CreartsDeviceInfo>();
+    registry.createService<CreartsRpcDemo>();
+    registry.createService<MonitorService>();
 
-    ESP_LOGI("Main", "services created: %zu, free heap: %lu",
-             registry.count(), esp_get_free_heap_size());
+    ESP_LOGI(TAG, "services=%zu free_heap=%lu",
+             registry.count(),
+             static_cast<unsigned long>(esp_get_free_heap_size()));
 
-    // 4. Verify getService with dynamic_cast
-    auto* found_blink = registry.getService<BlinkService>();
-    auto* found_wifi = registry.getService<embed::WifiService>();
-
-    ESP_LOGI("Main", "getService<BlinkService> -> %s",
-             found_blink ? "found" : "NOT FOUND");
-    ESP_LOGI("Main", "getService<WifiService> -> %s",
-             found_wifi ? "found" : "NOT FOUND");
-
-    // Verify dynamic_cast correctly distinguishes types
-    auto* wrong_cast = dynamic_cast<embed::WifiService*>(
-        static_cast<embed::Service*>(found_blink));
-    ESP_LOGI("Main", "dynamic_cast<BlinkService->WifiService> -> %s (should be nullptr)",
-             wrong_cast ? "NON-NULL (ERROR!)" : "nullptr (correct!)");
-
-    // 5. Start all services (lifecycle managed by registry)
     registry.startAll();
+    ESP_LOGI(TAG, "running — WiFi+MQTT → Crearts (%s.%s)",
+             CONFIG_EMBED_CREARTS_IOT_PRODUCT_ID,
+             CONFIG_EMBED_CREARTS_IOT_DEVICE_ID);
 
-    ESP_LOGI("Main", "demo running — LED blinks every 500ms, metrics every 10s, WiFi+MQTT connecting...");
-
-    // Main task just idles — event loop runs in its own task
     while (true) {
         vTaskDelay(pdMS_TO_TICKS(10'000));
     }

@@ -50,7 +50,7 @@ iot/v1/{product_id}/{device_id}/{direction}/{capability}/{operation}
 v1/{code}[/{op}]
 ```
 
-No product/device in the path. The broker/platform resolves the device from the MQTT session: `client_id` = `{product_id}.{device_id}` and/or the access token used as MQTT username.
+No product/device in the path. The broker/platform resolves the device from the MQTT session: `client_id` = `{product_id}.{device_id}` and MQTT username (same string). Password is the access token.
 
 | Short | Dir | Full equivalent |
 |-------|-----|-----------------|
@@ -626,8 +626,8 @@ Devices authenticate with an **access token** issued by the platform when the de
 
 | MQTT CONNECT field | Value |
 |--------------------|--------|
-| `username` | `<access_token>` (opaque secret from dashboard) |
-| `password` | empty string, **or** the same `<access_token>` if the broker rejects empty passwords (RabbitMQ default) |
+| `username` | `{product_id}.{device_id}` (same as `client_id`) |
+| `password` | `<access_token>` (opaque secret from dashboard) |
 | `client_id` | `{product_id}.{device_id}` (required; used for short-topic identity and ACL) |
 
 **Rules**

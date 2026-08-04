@@ -47,56 +47,6 @@ bool hostOk(std::string_view host)
            host.find("://") == std::string_view::npos;
 }
 
-std::optional<CreartsCredentials> build(std::string_view productId,
-                                        std::string_view deviceId,
-                                        std::string_view host,
-                                        std::string_view username,
-                                        std::string_view password,
-                                        TopicStyle style,
-                                        bool useTls,
-                                        uint16_t port,
-                                        bool accessTokenAuth)
-{
-    if (!idOk(productId) || !idOk(deviceId)) {
-        ESP_LOGE(TAG, "Invalid product_id or device_id");
-        return std::nullopt;
-    }
-    if (!hostOk(host)) {
-        ESP_LOGE(TAG, "Invalid host");
-        return std::nullopt;
-    }
-    if (username.empty() || username.size() >= kUserMax) {
-        ESP_LOGE(TAG, "Invalid username/token");
-        return std::nullopt;
-    }
-    if (password.size() >= kPassMax) {
-        return std::nullopt;
-    }
-
-    std::string uri = makeUri(host, useTls, port);
-    if (uri.size() >= kUriMax) {
-        return std::nullopt;
-    }
-
-    std::string clientId = std::format("{}.{}", productId, deviceId);
-    Topics topics(productId, deviceId, style);
-    std::string willTopic = topics.statusPublish();
-    std::string willMessage = CreartsCredentials::makeOfflineStatusJson("lwt");
-
-    return CreartsCredentials(std::string(productId),
-                              std::string(deviceId),
-                              std::string(username),
-                              std::string(password),
-                              std::move(clientId),
-                              std::move(uri),
-                              std::string(host),
-                              std::move(willTopic),
-                              std::move(willMessage),
-                              style,
-                              useTls,
-                              accessTokenAuth);
-}
-
 } // namespace
 
 std::string CreartsCredentials::makeOfflineStatusJson(const char* reason)
@@ -131,6 +81,57 @@ CreartsCredentials::CreartsCredentials(std::string productId,
     , accessTokenAuth_(accessTokenAuth)
 {}
 
+std::optional<CreartsCredentials> CreartsCredentials::build(
+    std::string_view productId,
+    std::string_view deviceId,
+    std::string_view host,
+    std::string_view username,
+    std::string_view password,
+    TopicStyle style,
+    bool useTls,
+    uint16_t port,
+    bool accessTokenAuth)
+{
+    if (!idOk(productId) || !idOk(deviceId)) {
+        ESP_LOGE(TAG, "Invalid product_id or device_id");
+        return std::nullopt;
+    }
+    if (!hostOk(host)) {
+        ESP_LOGE(TAG, "Invalid host");
+        return std::nullopt;
+    }
+    if (username.empty() || username.size() >= kUserMax) {
+        ESP_LOGE(TAG, "Invalid username/token");
+        return std::nullopt;
+    }
+    if (password.size() >= kPassMax) {
+        return std::nullopt;
+    }
+
+    std::string uri = makeUri(host, useTls, port);
+    if (uri.size() >= kUriMax) {
+        return std::nullopt;
+    }
+
+    std::string clientId = std::format("{}.{}", productId, deviceId);
+    Topics topics(productId, deviceId, style);
+    std::string willTopic = topics.statusPublish();
+    std::string willMessage = makeOfflineStatusJson("lwt");
+
+    return CreartsCredentials(std::string(productId),
+                              std::string(deviceId),
+                              std::string(username),
+                              std::string(password),
+                              std::move(clientId),
+                              std::move(uri),
+                              std::string(host),
+                              std::move(willTopic),
+                              std::move(willMessage),
+                              style,
+                              useTls,
+                              accessTokenAuth);
+}
+
 std::optional<CreartsCredentials> CreartsCredentials::createAccessToken(
     std::string_view productId,
     std::string_view deviceId,
@@ -144,9 +145,10 @@ std::optional<CreartsCredentials> CreartsCredentials::createAccessToken(
         ESP_LOGE(TAG, "Invalid access token");
         return std::nullopt;
     }
-    // Username = token. Password = token as well so stock RabbitMQ (no empty
-    // passwords) works; brokers that allow empty password still accept this.
-    return build(productId, deviceId, host, accessToken, accessToken, style,
+    // Username = {product}.{device} (readable in broker admin).
+    // Password = access token (secret; hashed by RabbitMQ).
+    std::string mqttUser = std::format("{}.{}", productId, deviceId);
+    return build(productId, deviceId, host, mqttUser, accessToken, style,
                  useTls, port, true);
 }
 

@@ -59,7 +59,7 @@ Correlation: JSON field `"id"` (uint32), **not** in the topic path. RPC success 
 1. Operator registers device in dashboard → platform generates **access token**
 2. Token shown **once**; stored hashed; RabbitMQ user provisioned (`user=token`, `pass=token`)
 3. Device firmware uses `CreartsCredentials::createAccessToken(product, device, host, token)`
-4. MQTT CONNECT: `username=token`, `password=token`, `client_id={product}.{device}`
+4. MQTT CONNECT: `username={product}.{device}`, `password=token`, `client_id={product}.{device}`
 5. Rotate token from dashboard invalidates the old broker user
 
 Shared admin broker credentials are for platform ingest / lab only — not for devices.
@@ -215,12 +215,12 @@ Keep schema simple and migration-based (`goose` / `golang-migrate` / embed SQL).
 4. Auto-create device? **No** by default — only known devices (secure). Optional “allow unknown” flag for lab mode.
 5. Respond inline where needed (NTP, attribute request, client RPC)
 
-**Short-topic identity:** resolve device by MQTT username (= access token) and/or `client_id` = `{product}.{device}`. Maintain `token → device` and `client_id → device` maps. Reject uplinks from unknown tokens.
+**Short-topic identity:** resolve device by MQTT username (= `{product}.{device}`) and/or `client_id` (same). Verify password against stored access-token hash. Reject uplinks from unknown users.
 
 Practical MVP:
 
 - **Every device** gets a unique access token at dashboard registration
-- MQTT CONNECT: `username=token`, `password=token` (or empty password if broker allows), `client_id=product.device`
+- MQTT CONNECT: `username=product.device`, `password=token`, `client_id=product.device`
 - Platform syncs token to RabbitMQ as a user (`rabbitmqadmin` / management API) with topic ACL limited to that device
 - Platform ingest uses a **service account** (not a device token) with read on `iot.v1.*.*.up.#` and `v1.#`
 - Downlinks published using the device’s stored `topic_style`
@@ -318,12 +318,18 @@ UI must be practical, not a generic AI “purple SaaS” template. Prefer a dens
 
 1. Select product (or create)
 2. Enter `device_id`, display name, topic style
-3. Platform generates **access token** (high entropy), hashes it, creates RabbitMQ MQTT user `username=token` / `password=token` with ACL for that device
+3. Platform generates **access token** (high entropy), hashes it, creates RabbitMQ MQTT user `username={product}.{device}` / `password=token` with ACL for that device
 4. Dashboard shows one-time panel:
-   - Broker URI, `client_id`, **access token**, copy buttons
+   - Broker URI, `client_id` (= username), **access token** (password), copy buttons
    - Firmware snippet using `CreartsCredentials::createAccessToken(...)`
 5. Device appears `offline` until the platform sees an MQTT session; unclean drop fires LWT on status topic
 6. Token cannot be retrieved later — only rotated
+
+### Device page — Properties (reported / desired)
+
+- **Reported** form: read-only JSON/table fed by device `attributes/report` (`v1/a`). Device firmware publishes flat keys (`version`, `model`, `app-name`, …) on each MQTT connect.
+- **Desired** form: editable on the dashboard; Save → persist DB + MQTT `attributes/update` (`v1/a/upd`) to the device. Device may `requestAttributes` for desired on connect and should apply updates from `onAttributeUpdate`.
+- Highlight keys where desired ≠ reported when both sides expose the same name.
 
 ### Device monitoring
 

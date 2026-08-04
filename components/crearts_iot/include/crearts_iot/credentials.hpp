@@ -13,8 +13,8 @@ namespace crearts::iot {
 /// MQTT credentials for Crearts IoT Platform.
 ///
 /// Primary auth: dashboard-issued **access token**
-///   - MQTT username = access token
-///   - MQTT password = access token (RabbitMQ-friendly; empty also allowed by brokers that permit it)
+///   - MQTT username = `{product_id}.{device_id}` (same as client id)
+///   - MQTT password = access token
 ///   - MQTT client id = `{product_id}.{device_id}`
 ///
 /// Configures LWT on `up/status` / `v1/s` (retained offline JSON).
@@ -96,6 +96,16 @@ private:
                        TopicStyle style,
                        bool useTls,
                        bool accessTokenAuth);
+
+    static std::optional<CreartsCredentials> build(std::string_view productId,
+                                                   std::string_view deviceId,
+                                                   std::string_view host,
+                                                   std::string_view username,
+                                                   std::string_view password,
+                                                   TopicStyle style,
+                                                   bool useTls,
+                                                   uint16_t port,
+                                                   bool accessTokenAuth);
 };
 
 } // namespace crearts::iot

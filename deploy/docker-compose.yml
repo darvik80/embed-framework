@@ -13,6 +13,8 @@ services:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-crearts}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-crearts}
       RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+      # Stable Erlang node name (Synology/Container Manager hostnames vary)
+      RABBITMQ_NODENAME: rabbit@rabbitmq
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
       - ./rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro

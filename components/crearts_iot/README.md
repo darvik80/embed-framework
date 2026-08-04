@@ -31,12 +31,14 @@ registry.createService<crearts::iot::CreartsIotService>(*creds);
 registry.createService<crearts::iot::MetricsTelemetryBridge>();
 ```
 
-MQTT mapping: `username=token`, `password=token`, `client_id=product.device`.
+MQTT mapping: `username=product.device`, `password=token`, `client_id=product.device`.
 
-Lab-only explicit user/pass: `CreartsCredentials::createBasic(...)`.
+Configure via **menuconfig** → *Embed Framework — Crearts IoT* (`CONFIG_EMBED_CREARTS_IOT_*`),
+not hardcoded strings in `main.cpp`.
 
 ## Spec notes
 
 - Correlation via JSON `"id"` (not in topic)
-- Attribute scopes: `reported` / `desired`
+- Attribute scopes: `reported` (device → `v1/a` / `…/attributes/report`) and `desired` (server → `v1/a/upd` / `…/attributes/update`)
+- Dashboard device page: reported form is read-only (from device reports); desired form is edited on platform and pushed over MQTT
 - RPC success code: `0`
