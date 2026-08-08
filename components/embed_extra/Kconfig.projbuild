@@ -51,3 +51,28 @@ menu "Embed Extra — Camera & MJPEG"
         default 8192
 
 endmenu
+
+menu "Embed Extra — LED strip (WS2812)"
+
+    config EMBED_LED_STRIP
+        bool "Enable LedStripService"
+        default y
+        help
+            Multiple WS2812/SK6812 strips. Bind GPIO at runtime via attach()
+            or RPC led_attach. No boot-time pin is reserved.
+
+    config EMBED_LED_STRIP_MAX
+        int "Max concurrent strips"
+        depends on EMBED_LED_STRIP
+        range 1 8
+        default 4
+        help
+            Limited by RMT TX channels on the chip (ESP32-S3 typically 4).
+
+    config EMBED_LED_STRIP_DEFAULT_BRIGHTNESS
+        int "Default brightness when attach omits it (0-255)"
+        depends on EMBED_LED_STRIP
+        range 1 255
+        default 32
+
+endmenu

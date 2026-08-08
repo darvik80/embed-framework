@@ -72,7 +72,8 @@ Demo `main/` also reports static **reported** attributes on connect and requests
 - Correlation via JSON `"id"` (not in topic)
 - Attribute scopes: `reported` (device → `v1/a` / `…/attributes/report`) and `desired` (server → `v1/a/upd`)
 - Dashboard: reported form is RO from device reports; desired form is edited on platform and pushed over MQTT
-- RPC success code: `0`
+- RPC: `RpcParams` / `parseRpcRequest`; success code `0`; unknown method `404`
+- Demo handlers in `main/`: `echo`, `set_led` (`offset`/`length`), `reboot`
 - Presence: session = online; LWT = offline
 
 Broker stack: [deploy/README.md](../../deploy/README.md).

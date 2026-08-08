@@ -4,6 +4,7 @@ idf_component_register(
         "src/topics.cpp"
         "src/telemetry.cpp"
         "src/attributes.cpp"
+        "src/rpc_params.cpp"
         "src/crearts_iot_service.cpp"
         "src/metrics_telemetry_bridge.cpp"
     INCLUDE_DIRS

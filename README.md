@@ -26,7 +26,7 @@ Demo `main/` wires **Crearts** by default: WiFi → MQTT → `CreartsIotService`
 main/                      app wiring (services, Kconfig → credentials)
 components/embed/          Service, Registry, EventLoop, Signal/Slot, StateMachine
 components/embed_core/     WifiService, MqttService, MetricsService
-components/embed_extra/    Camera, MJPEG, OSS upload
+components/embed_extra/    Camera, MJPEG, OSS upload, WS2812 LED strip
 components/crearts_iot/    Crearts IoT Platform device SDK (protocol v1)
 components/alicloud_*      Alibaba IoT / OSS
 components/thingsboard/    ThingsBoard MQTT device API
@@ -104,7 +104,7 @@ Point the device at the broker **LAN IP** (not `localhost`). On Podman/WSL, see 
 |-----------|------|
 | [embed](components/embed/README.md) | Core framework |
 | [embed_core](components/embed_core/README.md) | WiFi, MQTT, metrics |
-| embed_extra | Camera / MJPEG / OSS upload |
+| embed_extra | Camera / MJPEG / OSS upload / WS2812 LED strip |
 | [crearts_iot](components/crearts_iot/README.md) | Crearts IoT Platform device SDK |
 | alicloud_iot | Alink modules (things, OTA, NTP, …) |
 | alicloud_oss | OSS client + `OssService` |

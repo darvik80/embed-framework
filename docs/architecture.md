@@ -8,7 +8,7 @@
 ├─────────────────────────────────────────┤
 │ crearts_iot / alicloud_* / thingsboard  │
 ├─────────────────────────────────────────┤
-│ embed_extra (camera, mjpeg, oss upload) │
+│ embed_extra (camera, mjpeg, oss, led strip) │
 │ embed_core  (wifi, mqtt, metrics)       │
 ├─────────────────────────────────────────┤
 │ embed (registry, event loop, signal)    │

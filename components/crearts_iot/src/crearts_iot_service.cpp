@@ -1,4 +1,5 @@
 #include "crearts_iot/crearts_iot_service.hpp"
+#include "crearts_iot/rpc_params.hpp"
 
 #include "embed/registry.hpp"
 #include "cJSON.h"
@@ -294,27 +295,10 @@ void CreartsIotService::handleMessage(std::string_view topic, std::string_view p
 
     if (Topics::isRpcRequest(topic)) {
         RpcRequest req{};
-        req.requestId = parseJsonId(payload);
-
-        cJSON* root = cJSON_ParseWithLength(payload.data(), payload.size());
-        if (root) {
-            cJSON* method = cJSON_GetObjectItemCaseSensitive(root, "method");
-            cJSON* params = cJSON_GetObjectItemCaseSensitive(root, "params");
-            if (cJSON_IsString(method) && method->valuestring) {
-                req.method = method->valuestring;
-            }
-            if (params) {
-                char* printed = cJSON_PrintUnformatted(params);
-                if (printed) {
-                    req.params = printed;
-                    free(printed);
-                }
-            }
-            cJSON_Delete(root);
-        } else {
-            req.params.assign(payload.data(), payload.size());
+        if (!parseRpcRequest(payload, req)) {
+            ESP_LOGW(TAG, "RPC request: invalid JSON");
+            return;
         }
-
         ESP_LOGI(TAG, "RPC req id=%lu method=%s",
                  static_cast<unsigned long>(req.requestId), req.method.c_str());
         onRpcRequest.emit(req);

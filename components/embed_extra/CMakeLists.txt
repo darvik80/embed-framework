@@ -3,12 +3,14 @@ idf_component_register(
         "src/camera_service.cpp"
         "src/mjpeg_service.cpp"
         "src/oss_upload_service.cpp"
+        "src/led_strip_service.cpp"
     INCLUDE_DIRS
         "include"
     REQUIRES
         embed
         esp_http_server
         esp32-camera
+        led_strip
         freertos
         log
         heap
