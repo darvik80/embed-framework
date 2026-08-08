@@ -35,7 +35,6 @@ constexpr char kAppModel[] = "ESP32-S3";
 constexpr char kAppName[] = "embed-framework";
 constexpr char kAppVendor[] = "crearts";
 constexpr char kAppProtocol[] = "iot/v1";
-
 } // namespace
 
 // ── Messages ────────────────────────────────────────────────────────────
@@ -388,8 +387,10 @@ private:
     }
 
     static void onMetricsCollected(const embed::MetricsCollected& msg, void* /*ctx*/) {
-        ESP_LOGI("Monitor", "METRICS: cpu=%u%% heap_free=%u uptime=%us wifi=%s",
-                 msg.cpuUsagePercent, msg.freeHeap, msg.uptimeSeconds,
+        ESP_LOGI("Monitor",
+                 "METRICS: cpu=%u%% heap=%u dram=%u/%u psram=%u uptime=%us wifi=%s",
+                 msg.cpuUsagePercent, msg.freeHeap, msg.freeDram, msg.totalDram,
+                 msg.freePsram, msg.uptimeSeconds,
                  msg.wifiConnected ? "UP" : "DOWN");
     }
 

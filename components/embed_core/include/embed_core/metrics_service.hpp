@@ -22,11 +22,18 @@ struct MetricsCollected {
     uint8_t cpuUsagePercent = 0;        // CPU load 0-100
 
     // Memory
+    // freeHeap / minFreeHeap / largestFreeBlock: all 8-bit heaps (internal + PSRAM)
     uint32_t freeHeap = 0;
     uint32_t minFreeHeap = 0;
+    uint32_t largestFreeBlock = 0;
+    // Internal DRAM only (MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+    uint32_t freeDram = 0;
+    uint32_t minFreeDram = 0;
+    uint32_t largestFreeDramBlock = 0;
+    uint32_t totalDram = 0;
+    // PSRAM / SPIRAM
     uint32_t freePsram = 0;
     uint32_t minFreePsram = 0;
-    uint32_t largestFreeBlock = 0;
 
     // Uptime
     uint32_t uptimeSeconds = 0;

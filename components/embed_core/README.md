@@ -8,7 +8,7 @@ WiFi, MQTT, and metrics services built on `embed`.
 |---------|---------|-------|
 | `WifiService` | `onConnected`, `onDisconnected` | STA + CRTP state machine; NVS init in `start()` |
 | `MqttService` | `onConnected`, `onDisconnected`, `onMessage` | Connects when WiFi is up; credentials via `MqttCredentials&` |
-| `MetricsService` | `onMetricsCollected` | Periodic heap/CPU/WiFi/storage + custom metrics |
+| `MetricsService` | `onMetricsCollected` | Periodic CPU, heap (all 8-bit), **DRAM**, PSRAM, WiFi, storage + custom |
 
 ## MQTT
 

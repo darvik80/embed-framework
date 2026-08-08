@@ -42,9 +42,13 @@ TelemetryBuilder MetricsTelemetryBridge::buildFromMetrics(const embed::MetricsCo
     b.add("cpuUsagePercent", static_cast<int64_t>(msg.cpuUsagePercent));
     b.add("freeHeap", static_cast<int64_t>(msg.freeHeap));
     b.add("minFreeHeap", static_cast<int64_t>(msg.minFreeHeap));
+    b.add("largestFreeBlock", static_cast<int64_t>(msg.largestFreeBlock));
+    b.add("freeDram", static_cast<int64_t>(msg.freeDram));
+    b.add("minFreeDram", static_cast<int64_t>(msg.minFreeDram));
+    b.add("largestFreeDramBlock", static_cast<int64_t>(msg.largestFreeDramBlock));
+    b.add("totalDram", static_cast<int64_t>(msg.totalDram));
     b.add("freePsram", static_cast<int64_t>(msg.freePsram));
     b.add("minFreePsram", static_cast<int64_t>(msg.minFreePsram));
-    b.add("largestFreeBlock", static_cast<int64_t>(msg.largestFreeBlock));
     b.add("uptimeSeconds", static_cast<int64_t>(msg.uptimeSeconds));
     b.add("storageTotalBytes", static_cast<double>(msg.storageTotalBytes));
     b.add("storageUsedBytes", static_cast<double>(msg.storageUsedBytes));

@@ -158,10 +158,17 @@ uint8_t MetricsService::collectCpuLoad() {
 }
 
 void MetricsService::collectMemoryInfo(MetricsCollected& msg) {
-    // Heap (DRAM + PSRAM combined, 8-bit capable)
+    // All 8-bit capable heaps (internal DRAM + PSRAM on ESP32-S3)
     msg.freeHeap = heap_caps_get_free_size(MALLOC_CAP_8BIT);
     msg.minFreeHeap = heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT);
     msg.largestFreeBlock = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+
+    // Internal DRAM only (byte-accessible on-chip RAM)
+    constexpr uint32_t kDramCaps = MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT;
+    msg.freeDram = heap_caps_get_free_size(kDramCaps);
+    msg.minFreeDram = heap_caps_get_minimum_free_size(kDramCaps);
+    msg.largestFreeDramBlock = heap_caps_get_largest_free_block(kDramCaps);
+    msg.totalDram = heap_caps_get_total_size(kDramCaps);
 
     // PSRAM
     msg.freePsram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
