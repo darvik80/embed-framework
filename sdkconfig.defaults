@@ -53,11 +53,16 @@ CONFIG_EMBED_LED_STRIP=y
 CONFIG_EMBED_LED_STRIP_MAX=4
 CONFIG_EMBED_LED_STRIP_DEFAULT_BRIGHTNESS=32
 
-# PSRAM / SPIRAM — required for camera frame buffers
+# PSRAM — match the module marking (not menuconfig guess):
+#   WROOM-1-N8R8 / N16R8 / Freenove CAM → Octal (OPI)  ← default below
+#   …-N8R2 → Quad (QSPI); set CONFIG_SPIRAM_MODE_QUAD=y and unset OCTAL
+#   …-N8 / no "R" → no PSRAM; comment out this block
+# IGNORE_NOTFOUND: wrong mode must not abort in cpu_start (before app_main / OTA rollback).
 CONFIG_SPIRAM=y
 CONFIG_SPIRAM_MODE_OCTAL=y
 CONFIG_SPIRAM_SPEED_80M=y
 CONFIG_SPIRAM_BOOT_INIT=y
+CONFIG_SPIRAM_IGNORE_NOTFOUND=y
 CONFIG_SPIRAM_USE_CAPS_ALLOC=y
 
 # Use software SHA to avoid linker ordering issue with sha_hal symbols

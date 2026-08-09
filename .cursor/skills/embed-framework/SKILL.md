@@ -9,7 +9,7 @@ description: >-
 
 # embed-framework conventions
 
-ESP32-S3 · ESP-IDF ≥5.5 · C++20 framework (`-fno-exceptions`, RTTI in `embed`).
+ESP32-S3 · ESP-IDF ≥5.5 · C++20 framework (`-fno-exceptions`, RTTI in `embed`). Default PSRAM is **octal** (`N8R8` / Freenove CAM); quad vs missing PSRAM must not use `SPIRAM_BOOT_INIT` without `SPIRAM_IGNORE_NOTFOUND` or `cpu_start` aborts before `app_main`.
 
 ## Layering
 

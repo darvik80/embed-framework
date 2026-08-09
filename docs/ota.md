@@ -38,6 +38,7 @@ Web UI and RPC cannot help: the new app never reaches HTTP or MQTT.
 1. **Bootloader** (`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y` + `partitions_ota.csv`): after OTA the image is `ESP_OTA_IMG_PENDING_VERIFY`. Do **not** call `esp_ota_mark_app_valid` until MQTT is up. A panic/WDT reset while still pending → next bootloader pass boots the previous slot. Requires a **bootloader rebuild** (`idf.py bootloader-flash` or full flash), not only `app-flash`.
 2. **App crash-loop counter** (`checkCrashLoopRollback()` at the start of `app_main`, after NVS): 3 boots of a still-pending image, or 3 panic/WDT resets in a row, → `esp_ota_mark_app_invalid_rollback_and_reboot` / other slot. Works even if bootloader rollback was left off in `sdkconfig`. Survives ESP32-S3 `POWERON` (counter in NVS, not only RTC).
 3. **USB** `idf.py app-flash` of a known-good `.bin` if the other slot is empty (factory-only table or first flash).
+4. **PSRAM init fail** (`quad_psram` / `octal_psram` … `Failed to init external RAM!`) also happens in `cpu_start`, before `app_main`. Wrong quad vs octal (or no PSRAM chip) + `CONFIG_SPIRAM_BOOT_INIT` without `CONFIG_SPIRAM_IGNORE_NOTFOUND` → reboot loop with no software rollback. USB flash a build that matches the module (`N8R8` = octal, `N8R2` = quad, `N8` = SPIRAM off).
 
 Live `sdkconfig` in this tree still had rollback **off** until reconfigure:
 

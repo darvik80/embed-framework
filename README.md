@@ -10,6 +10,8 @@ idf.py menuconfig   # Embed Framework → WiFi + Crearts IoT
 idf.py build flash monitor
 ```
 
+**PSRAM:** `sdkconfig.defaults` assumes **octal** PSRAM (ESP32-S3-WROOM-1-**N8R8** / Freenove CAM). `quad_psram: chip is not connected, or wrong PSRAM line mode` + `Failed to init external RAM!` means the image was built for **quad** (or the module has no PSRAM). That abort is in `cpu_start` — **before** `app_main`, so firmware crash-loop rollback never runs. Fix: Component config → ESP PSRAM → **Octal** for R8, **Quad** for R2, or disable SPIRAM if there is no `R` in the module name. `CONFIG_SPIRAM_IGNORE_NOTFOUND` keeps the chip booting if the mode is wrong.
+
 **Secrets and site config:** first boot seeds NVS partition **`fctry`** from local `sdkconfig` (gitignored). After that OTA / USB flash keep WiFi + Crearts token on device. Commit only `sdkconfig.defaults` (no access tokens).
 
 | Menuconfig path | Keys |
