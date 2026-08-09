@@ -105,10 +105,14 @@ void appendBanner(std::string& html, const char* query)
             msg = "Credentials wiped (backup kept). Rebooting…";
         } else if (std::strstr(query, "rollback=1")) {
             msg = "Booting previous firmware…";
+        } else if (std::strstr(query, "imported=1")) {
+            msg = "Credentials imported. Rebooting…";
         } else if (std::strstr(query, "err=nobak")) {
             msg = "No backup to restore.";
         } else if (std::strstr(query, "err=noslot")) {
             msg = "No previous firmware in the other OTA slot.";
+        } else if (std::strstr(query, "err=badjson")) {
+            msg = "Invalid credentials JSON (need wifi.ssid + crearts product/device/host/token).";
         }
     }
     if (!msg) {
@@ -131,7 +135,7 @@ std::string buildIndexHtml(const char* query)
     const bool haveBak = loadWifiBackup(bakW) || loadCreartsBackup(bakC);
 
     std::string html;
-    html.reserve(4500);
+    html.reserve(6500);
     html +=
         "<!doctype html><html><head><meta charset=utf-8>"
         "<meta name=viewport content=\"width=device-width,initial-scale=1\">"
@@ -139,9 +143,11 @@ std::string buildIndexHtml(const char* query)
         "body{font-family:sans-serif;max-width:28rem;margin:1.2rem auto;padding:0 1rem;"
         "background:#111;color:#eee}"
         "h1{font-size:1.2rem}h2{font-size:1rem}label{display:block;margin:.7rem 0 .2rem;color:#bbb}"
-        "input,button{width:100%;box-sizing:border-box;padding:.55rem;border-radius:6px;"
+        "input,button,textarea{width:100%;box-sizing:border-box;padding:.55rem;border-radius:6px;"
         "border:1px solid #444;background:#1c1c1c;color:#eee}"
-        "input[type=checkbox]{width:auto}button{margin-top:1rem;background:#0a7;border:0;"
+        "textarea{min-height:8rem;font-family:monospace;font-size:.8rem}"
+        "input[type=file]{padding:.3rem}input[type=checkbox]{width:auto}"
+        "button{margin-top:1rem;background:#0a7;border:0;"
         "font-weight:600;cursor:pointer}button.danger{background:#a33}"
         "button.secondary{background:#246}"
         ".row{display:flex;gap:.8rem;align-items:center}small{color:#888}"
@@ -199,8 +205,28 @@ std::string buildIndexHtml(const char* query)
             "<button class=secondary type=submit>Restore backup &amp; reboot</button></form>"
             "</div>";
     } else {
-        html += "<p><small>No backup yet — it is created on Save or Factory reset.</small></p>";
+        html += "<p><small>No backup yet — it is created on Save, Import, or Factory reset.</small></p>";
     }
+
+    html +=
+        "<div class=bak><h2>JSON credentials</h2>"
+        "<p><small>Import WiFi + Crearts from a file or paste. Backup is taken first. "
+        "<a href=/credentials.json download=credentials.json style=color:#8cf>Download current JSON</a>"
+        "</small></p>"
+        "<form method=post action=/import "
+        "onsubmit=\"event.preventDefault();var j=this.json.value.trim();"
+        "if(!j){alert('Paste or pick a JSON file');return false;}"
+        "if(!confirm('Import credentials from JSON and reboot?'))return false;"
+        "fetch('/import',{method:'POST',headers:{'Content-Type':'application/json'},"
+        "body:j,redirect:'manual'}).then(function(r){"
+        "var loc=r.headers.get('Location');location.href=loc||'/?imported=1';});return false;\">"
+        "<textarea name=json placeholder='{\"wifi\":{\"ssid\":\"…\",\"password\":\"…\"},"
+        "\"crearts\":{\"product\":\"…\",\"device\":\"…\",\"host\":\"…\",\"token\":\"…\","
+        "\"port\":0,\"tls\":false,\"topic_short\":true}}'></textarea>"
+        "<label>Or pick a .json file</label>"
+        "<input type=file accept=\"application/json,.json\" "
+        "onchange=\"var f=this.files[0];if(!f)return;f.text().then(function(t){this.form.json.value=t;}.bind(this))\">"
+        "<button class=secondary type=submit>Import JSON &amp; reboot</button></form></div>";
 
     FirmwareSlotInfo runFw{};
     FirmwareSlotInfo prevFw{};
@@ -269,7 +295,7 @@ esp_err_t handleCaptive(httpd_req_t* req)
 esp_err_t readBody(httpd_req_t* req, std::string& body)
 {
     const size_t len = req->content_len;
-    if (len == 0 || len > 2048) {
+    if (len == 0 || len > 4096) {
         return ESP_ERR_INVALID_SIZE;
     }
     body.resize(len);
@@ -365,6 +391,47 @@ esp_err_t handleSave(httpd_req_t* req)
     return redirectRoot(req, "saved=1");
 }
 
+esp_err_t handleImport(httpd_req_t* req)
+{
+    std::string body;
+    if (readBody(req, body) != ESP_OK) {
+        httpd_resp_set_status(req, "400 Bad Request");
+        return httpd_resp_sendstr(req, "bad body");
+    }
+
+    char jsonBuf[4096]{};
+    const char* json = body.c_str();
+    if (formGet(body.c_str(), "json", jsonBuf, sizeof(jsonBuf)) && jsonBuf[0]) {
+        json = jsonBuf;
+    }
+
+    const esp_err_t err = importCredentialsJson(json);
+    if (err == ESP_ERR_INVALID_ARG) {
+        return redirectRoot(req, "err=badjson");
+    }
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "import failed: %s", esp_err_to_name(err));
+        httpd_resp_set_status(req, "500 Internal Server Error");
+        return httpd_resp_sendstr(req, "import failed");
+    }
+    scheduleReboot(1500);
+    return redirectRoot(req, "imported=1");
+}
+
+esp_err_t handleExport(httpd_req_t* req)
+{
+    char buf[2048]{};
+    const esp_err_t err = exportCredentialsJson(buf, sizeof(buf), true);
+    if (err != ESP_OK) {
+        httpd_resp_set_status(req, "500 Internal Server Error");
+        return httpd_resp_sendstr(req, "export failed");
+    }
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Content-Disposition", "attachment; filename=\"credentials.json\"");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    return httpd_resp_sendstr(req, buf);
+}
+
 esp_err_t handleRestore(httpd_req_t* req)
 {
     const esp_err_t err = restoreSettingsBackup();
@@ -444,6 +511,8 @@ void ConfigPortalService::start()
 
     const httpd_uri_t indexUri{.uri = "/", .method = HTTP_GET, .handler = handleIndex, .user_ctx = nullptr};
     const httpd_uri_t saveUri{.uri = "/save", .method = HTTP_POST, .handler = handleSave, .user_ctx = nullptr};
+    const httpd_uri_t importUri{.uri = "/import", .method = HTTP_POST, .handler = handleImport, .user_ctx = nullptr};
+    const httpd_uri_t exportUri{.uri = "/credentials.json", .method = HTTP_GET, .handler = handleExport, .user_ctx = nullptr};
     const httpd_uri_t restoreUri{.uri = "/restore", .method = HTTP_POST, .handler = handleRestore, .user_ctx = nullptr};
     const httpd_uri_t otaRollbackUri{.uri = "/ota_rollback", .method = HTTP_POST, .handler = handleOtaRollback, .user_ctx = nullptr};
     const httpd_uri_t resetUri{.uri = "/reset", .method = HTTP_POST, .handler = handleReset, .user_ctx = nullptr};
@@ -453,6 +522,8 @@ void ConfigPortalService::start()
 
     httpd_register_uri_handler(impl_->server, &indexUri);
     httpd_register_uri_handler(impl_->server, &saveUri);
+    httpd_register_uri_handler(impl_->server, &importUri);
+    httpd_register_uri_handler(impl_->server, &exportUri);
     httpd_register_uri_handler(impl_->server, &restoreUri);
     httpd_register_uri_handler(impl_->server, &otaRollbackUri);
     httpd_register_uri_handler(impl_->server, &resetUri);

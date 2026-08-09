@@ -28,7 +28,7 @@ static_assert(embed::Message<AttributeResponse>);
 struct RpcRequest {
     uint32_t requestId = 0;
     embed::string<63> method;
-    embed::string<511> params;
+    embed::string<1199> params;
 };
 static_assert(embed::Message<RpcRequest>);
 

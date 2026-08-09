@@ -1,6 +1,7 @@
 #include "embed_core/device_settings.hpp"
 #include "embed_core/nvs_store.hpp"
 
+#include "cJSON.h"
 #include "driver/gpio.h"
 #include "esp_attr.h"
 #include "esp_log.h"
@@ -10,7 +11,9 @@
 #include "freertos/task.h"
 #include "sdkconfig.h"
 
+#include <cstdlib>
 #include <cstring>
+#include <initializer_list>
 
 namespace embed {
 
@@ -229,6 +232,212 @@ esp_err_t restoreSettingsBackup()
                  haveC ? bakC.host : "-");
     }
     return err;
+}
+
+namespace {
+
+cJSON* jsonChild(cJSON* obj, std::initializer_list<const char*> keys)
+{
+    if (!obj) {
+        return nullptr;
+    }
+    for (const char* key : keys) {
+        cJSON* it = cJSON_GetObjectItemCaseSensitive(obj, key);
+        if (it) {
+            return it;
+        }
+    }
+    return nullptr;
+}
+
+void copyJsonString(cJSON* obj, std::initializer_list<const char*> keys, char* dst, size_t dstLen)
+{
+    cJSON* it = jsonChild(obj, keys);
+    if (!cJSON_IsString(it) || !it->valuestring || !it->valuestring[0] || !dst || dstLen == 0) {
+        return;
+    }
+    std::strncpy(dst, it->valuestring, dstLen - 1);
+    dst[dstLen - 1] = '\0';
+}
+
+bool copyJsonBool(cJSON* obj, std::initializer_list<const char*> keys, bool& out)
+{
+    cJSON* it = jsonChild(obj, keys);
+    if (!it) {
+        return false;
+    }
+    if (cJSON_IsBool(it)) {
+        out = cJSON_IsTrue(it);
+        return true;
+    }
+    if (cJSON_IsNumber(it)) {
+        out = it->valuedouble != 0;
+        return true;
+    }
+    if (cJSON_IsString(it) && it->valuestring) {
+        out = std::strcmp(it->valuestring, "1") == 0 ||
+              std::strcmp(it->valuestring, "true") == 0 ||
+              std::strcmp(it->valuestring, "yes") == 0;
+        return true;
+    }
+    return false;
+}
+
+bool copyJsonPort(cJSON* obj, CreartsSettings& crearts)
+{
+    cJSON* it = jsonChild(obj, {"port"});
+    if (!it) {
+        return false;
+    }
+    if (cJSON_IsNumber(it)) {
+        const int v = static_cast<int>(it->valuedouble);
+        crearts.port = v < 0 ? 0 : (v > 65535 ? 65535 : static_cast<uint16_t>(v));
+        return true;
+    }
+    if (cJSON_IsString(it) && it->valuestring && it->valuestring[0]) {
+        const int v = std::atoi(it->valuestring);
+        crearts.port = v < 0 ? 0 : (v > 65535 ? 65535 : static_cast<uint16_t>(v));
+        return true;
+    }
+    return false;
+}
+
+void overlayWifiJson(cJSON* obj, WifiSettings& wifi)
+{
+    if (!obj || !cJSON_IsObject(obj)) {
+        return;
+    }
+    copyJsonString(obj, {"ssid"}, wifi.ssid, sizeof(wifi.ssid));
+    copyJsonString(obj, {"password", "pass"}, wifi.password, sizeof(wifi.password));
+}
+
+void overlayCreartsJson(cJSON* obj, CreartsSettings& crearts)
+{
+    if (!obj || !cJSON_IsObject(obj)) {
+        return;
+    }
+    copyJsonString(obj, {"product", "product_id", "productId"}, crearts.product,
+                   sizeof(crearts.product));
+    copyJsonString(obj, {"device", "device_id", "deviceId"}, crearts.device, sizeof(crearts.device));
+    copyJsonString(obj, {"host", "broker", "broker_host"}, crearts.host, sizeof(crearts.host));
+    copyJsonString(obj, {"token", "access_token", "accessToken"}, crearts.token,
+                   sizeof(crearts.token));
+    copyJsonPort(obj, crearts);
+    copyJsonBool(obj, {"tls", "use_tls", "useTls"}, crearts.useTls);
+    copyJsonBool(obj, {"topic_short", "topicShort", "short"}, crearts.topicShort);
+}
+
+} // namespace
+
+esp_err_t parseCredentialsJson(const char* json, WifiSettings& wifi, CreartsSettings& crearts)
+{
+    if (!json || !json[0]) {
+        ESP_LOGE(TAG, "credentials JSON empty");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    cJSON* root = cJSON_Parse(json);
+    if (!root || !cJSON_IsObject(root)) {
+        if (root) {
+            cJSON_Delete(root);
+        }
+        ESP_LOGE(TAG, "credentials JSON is not an object");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    cJSON* wifiObj = jsonChild(root, {"wifi", "WiFi"});
+    cJSON* creartsObj = jsonChild(root, {"crearts", "mqtt", "crearts_iot"});
+    overlayWifiJson(wifiObj ? wifiObj : root, wifi);
+    overlayCreartsJson(creartsObj ? creartsObj : root, crearts);
+    cJSON_Delete(root);
+
+    if (!wifi.ssid[0]) {
+        ESP_LOGE(TAG, "credentials JSON missing wifi.ssid");
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!creartsSettingsComplete(crearts)) {
+        ESP_LOGE(TAG, "credentials JSON missing crearts product/device/host/token");
+        return ESP_ERR_INVALID_ARG;
+    }
+    return ESP_OK;
+}
+
+esp_err_t importCredentialsJson(const char* json)
+{
+    WifiSettings wifi{};
+    CreartsSettings crearts{};
+    loadWifiSettings(wifi);
+    loadCreartsSettings(crearts);
+
+    const esp_err_t parsed = parseCredentialsJson(json, wifi, crearts);
+    if (parsed != ESP_OK) {
+        return parsed;
+    }
+
+    const esp_err_t bak = backupSettings();
+    if (bak != ESP_OK && bak != ESP_ERR_NOT_FOUND) {
+        ESP_LOGW(TAG, "backup before JSON import failed: %s", esp_err_to_name(bak));
+    }
+
+    esp_err_t err = saveWifiSettings(wifi);
+    if (err == ESP_OK) {
+        err = saveCreartsSettings(crearts);
+    }
+    if (err == ESP_OK) {
+        err = setConfigPortalRequested(false);
+    }
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "imported credentials wifi=%s crearts=%s.%s @ %s",
+                 wifi.ssid, crearts.product, crearts.device, crearts.host);
+    }
+    return err;
+}
+
+esp_err_t exportCredentialsJson(char* out, size_t outLen, bool includeSecrets)
+{
+    if (!out || outLen == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    out[0] = '\0';
+
+    WifiSettings wifi{};
+    CreartsSettings crearts{};
+    loadWifiSettings(wifi);
+    loadCreartsSettings(crearts);
+
+    cJSON* root = cJSON_CreateObject();
+    if (!root) {
+        return ESP_ERR_NO_MEM;
+    }
+    cJSON* w = cJSON_AddObjectToObject(root, "wifi");
+    cJSON* c = cJSON_AddObjectToObject(root, "crearts");
+    if (!w || !c) {
+        cJSON_Delete(root);
+        return ESP_ERR_NO_MEM;
+    }
+    cJSON_AddStringToObject(w, "ssid", wifi.ssid);
+    cJSON_AddStringToObject(w, "password", includeSecrets ? wifi.password : "");
+    cJSON_AddStringToObject(c, "product", crearts.product);
+    cJSON_AddStringToObject(c, "device", crearts.device);
+    cJSON_AddStringToObject(c, "host", crearts.host);
+    cJSON_AddNumberToObject(c, "port", crearts.port);
+    cJSON_AddStringToObject(c, "token", includeSecrets ? crearts.token : "");
+    cJSON_AddBoolToObject(c, "tls", crearts.useTls);
+    cJSON_AddBoolToObject(c, "topic_short", crearts.topicShort);
+
+    char* printed = cJSON_Print(root);
+    cJSON_Delete(root);
+    if (!printed) {
+        return ESP_ERR_NO_MEM;
+    }
+    const size_t n = std::strlen(printed);
+    if (n + 1 > outLen) {
+        free(printed);
+        return ESP_ERR_INVALID_SIZE;
+    }
+    std::memcpy(out, printed, n + 1);
+    free(printed);
+    return ESP_OK;
 }
 
 bool creartsSettingsComplete(const CreartsSettings& s)

@@ -135,11 +135,30 @@ WiFi + Crearts token live in `fctry`. To **force-update** them:
 | RPC `config_portal` | Reboot into AP **without** wipe (form prefilled) |
 | Web **Factory reset credentials** | Wipe active creds (backup kept) + reboot into AP |
 | Web **Save & reboot** | Snapshot backup, write `fctry`, STA + MQTT |
+| Web **Import JSON** / `GET /credentials.json` | Paste or upload credentials file; download current |
+| RPC `import_credentials` `{ "json": "{…}" }` | Same import + reboot |
 | Web **Restore backup** | Swap active ↔ previous **settings**, reboot |
 | Web / RPC **ota_rollback** | Boot previous **firmware** OTA slot |
 | OTA crash-loop before init | Bootloader pending-verify + 3 failed boots → previous slot |
 
 On STA (default), the same page is at `http://<device-ip>/`. Menuconfig: **Embed Framework — Config Portal**.
+
+Credentials JSON (web import / RPC `import_credentials` / download):
+
+```json
+{
+  "wifi": { "ssid": "home", "password": "secret" },
+  "crearts": {
+    "product": "home",
+    "device": "esp32-s3",
+    "host": "192.168.1.100",
+    "port": 0,
+    "token": "…",
+    "tls": false,
+    "topic_short": true
+  }
+}
+```
 
 ## Metrics storage
 

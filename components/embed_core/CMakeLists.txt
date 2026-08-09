@@ -27,4 +27,5 @@ idf_component_register(
     PRIV_REQUIRES
         spiffs
         mbedtls
+        json
 )

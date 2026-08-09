@@ -11,8 +11,8 @@ namespace embed {
 /// SoftAP / portal: `http://192.168.4.1/`
 /// STA (if `CONFIG_EMBED_CONFIG_HTTP_STA`): `http://<device-ip>/`
 ///
-/// Save writes `fctry` and reboots. Factory reset wipes identity and reboots
-/// into the portal.
+/// Save / JSON import write `fctry` and reboot. Download `GET /credentials.json`.
+/// Factory reset wipes identity and reboots into the portal.
 class ConfigPortalService : public Service {
 public:
     ConfigPortalService();

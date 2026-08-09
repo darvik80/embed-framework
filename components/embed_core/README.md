@@ -23,7 +23,7 @@ WiFi, MQTT, and metrics services built on `embed`.
 
 `NvsStore::initFlash()` opens default `nvs` (WiFi PHY) and, if present, **`fctry`**. Device WiFi + cloud identity should live in `fctry` so `idf.py flash` / OTA do not wipe them. First boot seeds from Kconfig.
 
-`factoryResetSettings()` wipes active wifi/crearts (backup `wifi_b` / `crearts_b` is kept) and sets the portal flag so the next boot **does not** re-seed from Kconfig. Hold **BOOT (GPIO 0) 3 s while the app is running**, or press **EN/RST 3× quickly**. RPC `factory_reset` / `config_portal`, or the web UI (**Save** snapshots backup, **Restore** swaps). SoftAP SSID is `{prefix}-{MAC}` (default `embed-A1B2`).
+`factoryResetSettings()` wipes active wifi/crearts (backup `wifi_b` / `crearts_b` is kept) and sets the portal flag so the next boot **does not** re-seed from Kconfig. Hold **BOOT (GPIO 0) 3 s while the app is running**, or press **EN/RST 3× quickly**. RPC `factory_reset` / `config_portal` / `import_credentials`, or the web UI (**Save**, **Import JSON**, **Restore**, `GET /credentials.json`). SoftAP SSID is `{prefix}-{MAC}` (default `embed-A1B2`).
 
 ## Metrics storage
 

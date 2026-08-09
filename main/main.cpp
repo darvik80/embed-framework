@@ -321,6 +321,8 @@ public:
             rpcBool("on", false, true)};
         static constexpr crearts::iot::RpcParamDef kReboot[] = {rpcInt("delayMs", false, 500)};
         static constexpr crearts::iot::RpcParamDef kFactoryReset[] = {rpcBool("confirm")};
+        static constexpr crearts::iot::RpcParamDef kImportCreds[] = {rpcStr("json")};
+        static constexpr crearts::iot::RpcParamDef kExportCreds[] = {rpcBool("secrets", false, false)};
 
         rpc.add("echo", kEcho, onEcho, nullptr, "Echo a string");
         rpc.add("led_attach", kLedAttach, onLedAttach, nullptr, "Attach WS2812 strip on GPIO");
@@ -335,6 +337,10 @@ public:
                 "Reboot into config AP without wiping credentials");
         rpc.add("ota_rollback", kFactoryReset, onOtaRollback, nullptr,
                 "Boot previous OTA slot (confirm=true)");
+        rpc.add("import_credentials", kImportCreds, onImportCredentials, nullptr,
+                "Import WiFi+Crearts from JSON string (params.json)");
+        rpc.add("export_credentials", kExportCreds, onExportCredentials, nullptr,
+                "Export credentials JSON (secrets=true includes token)");
 
         ESP_LOGI("CreartsRpc", "RPC registered (%u + rpc-list)", rpc.count());
     }
@@ -572,6 +578,44 @@ private:
         }
         iot.respondRpc(id, 0, "ok", "{\"portal\":true}");
         embed::scheduleReboot(800);
+    }
+
+    static void onImportCredentials(crearts::iot::CreartsIotService& iot,
+                                    uint32_t id,
+                                    const crearts::iot::RpcParams& p,
+                                    void*)
+    {
+        std::string json;
+        if (!p.get("json", json) || json.empty()) {
+            iot.respondRpc(id, 400, "params.json required (credentials object as string)");
+            return;
+        }
+        const esp_err_t err = embed::importCredentialsJson(json.c_str());
+        if (err == ESP_ERR_INVALID_ARG) {
+            iot.respondRpc(id, 400, "invalid credentials JSON");
+            return;
+        }
+        if (err != ESP_OK) {
+            iot.respondRpc(id, 500, esp_err_to_name(err));
+            return;
+        }
+        iot.respondRpc(id, 0, "ok", "{\"imported\":true}");
+        embed::scheduleReboot(800);
+    }
+
+    static void onExportCredentials(crearts::iot::CreartsIotService& iot,
+                                    uint32_t id,
+                                    const crearts::iot::RpcParams& p,
+                                    void*)
+    {
+        const bool secrets = p.getBool("secrets", false);
+        char buf[2048]{};
+        const esp_err_t err = embed::exportCredentialsJson(buf, sizeof(buf), secrets);
+        if (err != ESP_OK) {
+            iot.respondRpc(id, 500, esp_err_to_name(err));
+            return;
+        }
+        iot.respondRpc(id, 0, "ok", buf);
     }
 
     static void onOtaRollback(crearts::iot::CreartsIotService& iot,

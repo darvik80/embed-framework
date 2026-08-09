@@ -83,7 +83,7 @@ Demo `main/` also reports static **reported** attributes on connect and requests
 - Attribute scopes: `reported` (device → `v1/a` / `…/attributes/report`) and `desired` (server → `v1/a/upd`)
 - Dashboard: reported form is RO from device reports; desired form is edited on platform and pushed over MQTT
 - RPC: register on `CreartsIotService::rpc()`; built-in **`rpc-list`** returns method + param types; unknown → `404`
-- Demo handlers in `main/`: `echo`, `led_attach` / `led_detach` / `led_list`, `set_led`, `reboot`, `factory_reset`, `config_portal`, `ota_rollback`
+- Demo handlers in `main/`: `echo`, `led_attach` / `led_detach` / `led_list`, `set_led`, `reboot`, `factory_reset`, `config_portal`, `ota_rollback`, `import_credentials`, `export_credentials`
 - Presence: session = online; LWT = offline
 
 ### Register RPC methods

@@ -37,6 +37,17 @@ esp_err_t backupSettings();
 /// Restore backup → active (previous active becomes the new backup).
 esp_err_t restoreSettingsBackup();
 
+/// Overlay JSON onto `wifi` / `crearts` (already loaded values are kept when a
+/// key is missing or empty). Accepts nested `{wifi,crearts}` or flat keys.
+/// ESP_ERR_INVALID_ARG = bad JSON or missing ssid / product / device / host / token.
+esp_err_t parseCredentialsJson(const char* json, WifiSettings& wifi, CreartsSettings& crearts);
+
+/// Backup active settings, apply JSON, clear portal flag. Does not reboot.
+esp_err_t importCredentialsJson(const char* json);
+
+/// Write pretty JSON (`wifi` + `crearts`). Token/password omitted unless `includeSecrets`.
+esp_err_t exportCredentialsJson(char* out, size_t outLen, bool includeSecrets = true);
+
 [[nodiscard]] bool isConfigPortalRequested();
 esp_err_t setConfigPortalRequested(bool on);
 
