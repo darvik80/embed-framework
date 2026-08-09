@@ -17,7 +17,7 @@
 
 Dependencies point **downward** only. Cloud providers implement `embed::MqttCredentials` and consume `MqttService` signals; they must not become required by `embed` itself.
 
-`main/` selects a cloud path (default: **Crearts** via `CONFIG_EMBED_CREARTS_IOT_*`). Credentials are built once as `static` and passed into `MqttService` + the vendor service.
+`main/` selects a cloud path (default: **Crearts**). Credentials are loaded from NVS (`fctry`, Kconfig seed on first boot), kept `static`, and passed into `MqttService` + the vendor service.
 
 ## Crearts session model
 
@@ -40,7 +40,7 @@ Protocol details: [iot-platform-mqtt-spec.md](iot-platform-mqtt-spec.md).
 | WiFi / IP events | Default ESP-IDF loop | Handled inside `WifiService`, then translated to Signals |
 | MQTT client events | MQTT task / default loop | Handled inside `MqttService`, then translated to Signals |
 
-Keep Slot handlers short. Blocking HTTP, TLS downloads, or long flash writes must run on a dedicated FreeRTOS task.
+Keep Slot handlers short. Blocking HTTP, TLS downloads, or long flash writes must run on a dedicated FreeRTOS task. `embed_evt` stack is `EMBED_EVENT_TASK_STACK_SIZE` (default 8192) — MQTT RPC + cJSON + LED RMT do not fit in 4 KB.
 
 ## Service size budget
 
@@ -70,6 +70,8 @@ With `EMBED_THREAD_SAFE=1` (default):
 
 | Lives in | Examples |
 |----------|----------|
-| `sdkconfig` (local, gitignored) | WiFi password, Crearts access token, broker LAN IP |
+| NVS `fctry` (on device) | WiFi password, Crearts access token, broker LAN IP — survives OTA / `idf.py flash` |
+| Config portal | SoftAP + HTTP (and optional STA HTTP) to write `fctry`; GPIO/RPC factory reset |
+| `sdkconfig` (local, gitignored) | First-boot seed for `fctry` (skipped after factory reset / portal flag) |
 | `sdkconfig.defaults` (committed) | Non-secret defaults, feature toggles |
 | Source | Service graph, topic builders, protocol logic |

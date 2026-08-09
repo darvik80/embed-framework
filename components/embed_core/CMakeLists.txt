@@ -3,6 +3,10 @@ idf_component_register(
         "src/wifi_service.cpp"
         "src/mqtt_service.cpp"
         "src/metrics_service.cpp"
+        "src/nvs_store.cpp"
+        "src/device_settings.cpp"
+        "src/config_portal_service.cpp"
+        "src/firmware_slot.cpp"
     INCLUDE_DIRS
         "include"
     REQUIRES
@@ -11,13 +15,16 @@ idf_component_register(
         esp_netif
         esp_event
         nvs_flash
+        esp_partition
         mqtt
         esp_timer
         esp_system
         log
         freertos
+        esp_http_server
+        esp_driver_gpio
+        app_update
     PRIV_REQUIRES
-        esp_partition
         spiffs
         mbedtls
 )

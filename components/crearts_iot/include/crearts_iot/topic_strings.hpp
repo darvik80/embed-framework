@@ -68,26 +68,26 @@ inline constexpr std::string_view kProgress = CREARTS_TOPIC_PROGRESS;
 /// Short-style absolute topics (protocol v1).
 namespace short_topic {
 
-inline constexpr std::string_view kStatus = "v1/s";
-inline constexpr std::string_view kTelemetry = "v1/t";
-inline constexpr std::string_view kEvents = "v1/e";
-inline constexpr std::string_view kAttributesReport = "v1/a";
-inline constexpr std::string_view kAttributesRequest = "v1/a/req";
-inline constexpr std::string_view kAttributesResponse = "v1/a/res";
-inline constexpr std::string_view kAttributesUpdate = "v1/a/upd";
-inline constexpr std::string_view kRpcRequest = "v1/r/req";
-inline constexpr std::string_view kRpcResponse = "v1/r/res";
-inline constexpr std::string_view kRpcClientRequest = "v1/r/creq";
-inline constexpr std::string_view kRpcClientResponse = "v1/r/cres";
-inline constexpr std::string_view kNtpRequest = "v1/n/req";
-inline constexpr std::string_view kNtpResponse = "v1/n/res";
-inline constexpr std::string_view kOtaVersion = "v1/o/ver";
-inline constexpr std::string_view kOtaQuery = "v1/o/q";
-inline constexpr std::string_view kOtaUpdate = "v1/o/upd";
-inline constexpr std::string_view kOtaCancel = "v1/o/can";
-inline constexpr std::string_view kOtaProgress = "v1/o/p";
-inline constexpr std::string_view kLogs = "v1/l";
-inline constexpr std::string_view kDownstream = "v1/#";
+inline constexpr std::string_view kStatus = "v1/me/s";
+inline constexpr std::string_view kTelemetry = "v1/me/t";
+inline constexpr std::string_view kEvents = "v1/me/e";
+inline constexpr std::string_view kAttributesReport = "v1/me/a";
+inline constexpr std::string_view kAttributesRequest = "v1/me/a/req";
+inline constexpr std::string_view kAttributesResponse = "v1/me/a/res";
+inline constexpr std::string_view kAttributesUpdate = "v1/me/a/upd";
+inline constexpr std::string_view kRpcRequest = "v1/me/r/req";
+inline constexpr std::string_view kRpcResponse = "v1/me/r/res";
+inline constexpr std::string_view kRpcClientRequest = "v1/me/r/creq";
+inline constexpr std::string_view kRpcClientResponse = "v1/me/r/cres";
+inline constexpr std::string_view kNtpRequest = "v1/me/n/req";
+inline constexpr std::string_view kNtpResponse = "v1/me/n/res";
+inline constexpr std::string_view kOtaVersion = "v1/me/o/ver";
+inline constexpr std::string_view kOtaQuery = "v1/me/o/q";
+inline constexpr std::string_view kOtaUpdate = "v1/me/o/upd";
+inline constexpr std::string_view kOtaCancel = "v1/me/o/can";
+inline constexpr std::string_view kOtaProgress = "v1/me/o/p";
+inline constexpr std::string_view kLogs = "v1/me/l";
+inline constexpr std::string_view kDownstream = "v1/me/#";
 
 } // namespace short_topic
 

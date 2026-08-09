@@ -8,6 +8,7 @@ Prioritized from architecture review (2026-07-29). Skills: `.cursor/skills/embed
 - [x] **OssUploadService reclaim** — `releaseCameraFrame()` / `esp_camera_fb_return` when `fb != nullptr`.
 - [x] **OTA partitions** — `partitions_ota.csv` + early reject on factory-only; see `docs/ota.md`.
 - [x] **OTA off EventLoop** — `scheduleOtaUpdate()` → FreeRTOS task `ota_update`.
+- [x] **OTA crash-loop rollback** — pending-verify + `checkCrashLoopRollback()` before TLS/services.
 
 ## P1 — Framework reliability
 
@@ -20,7 +21,7 @@ Prioritized from architecture review (2026-07-29). Skills: `.cursor/skills/embed
 ## P2 — Feature completeness
 
 - [ ] **Camera Kconfig / stop sync** — _(frozen with camera)_
-- [x] **MQTT payload size** — `payload` capacity 767; `EMBED_MAX_EVENT_DATA_SIZE` 1024; truncation logged.
+- [x] **MQTT payload size** — `payload` capacity 1400; `EMBED_MAX_EVENT_DATA_SIZE` 1600; truncation logged.
 - [ ] **ThingsBoard** — Access Token / Basic credentials + ThingsBoardService (telemetry, attributes, RPC). Client RPC / claim / protobuf TBD.
 - [ ] **OssUploadService::stop** — _(frozen with camera)_
 - [x] **Metrics storage** — SPIFFS `storage` + `esp_spiffs_info` when mounted.
@@ -31,6 +32,8 @@ Prioritized from architecture review (2026-07-29). Skills: `.cursor/skills/embed
 - [ ] **C++ dialect** — Unify on C++20 for new code.
 - [x] **Dual MQTT reconnect** — esp-mqtt auto-reconnect disabled; SM + timer is sole policy.
 - [x] **sdkconfig.defaults** — Site WiFi / Crearts token stay out of defaults; token empty in defaults, local `sdkconfig` gitignored.
+- [x] **fctry NVS** — WiFi + Crearts identity persist across OTA / `idf.py flash`; Kconfig seeds first boot.
+- [x] **Config portal** — SoftAP + HTTP WiFi/MQTT setup; GPIO/RPC factory reset does not re-seed Kconfig.
 - [ ] **main.cpp** — Split demo vs product profile.
 - [x] **Crearts IoT docs** — Root README, architecture, crearts_iot + deploy READMEs aligned with auth + Kconfig.
 ## P4 — Docs & tests

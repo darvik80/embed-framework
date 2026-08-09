@@ -20,6 +20,7 @@ Include `embed/embed.hpp` or specific headers under `include/embed/`.
 ## Rules of thumb
 
 - Messages must be trivially copyable and fit `EMBED_MAX_EVENT_DATA_SIZE`.
+- `embed_evt` stack is `EMBED_EVENT_TASK_STACK_SIZE` (default **8192**). Keep Slot handlers short; cJSON + RMT on this task need the extra room.
 - `EventLoop::post` waits at most `EMBED_EVENT_POST_TIMEOUT_MS` then returns an error; `Signal::emit` logs and drops.
 - Connection pool is thread-safe when `EMBED_THREAD_SAFE=1`.
 

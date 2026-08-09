@@ -6,8 +6,10 @@
 #include "crearts_iot/telemetry.hpp"
 #include "crearts_iot/attributes.hpp"
 #include "crearts_iot/credentials.hpp"
+#include "crearts_iot/rpc_registry.hpp"
 
 #include <cstdint>
+#include <memory>
 #include <string_view>
 
 namespace crearts::iot {
@@ -39,7 +41,7 @@ struct NtpResponse {
 static_assert(embed::Message<NtpResponse>);
 
 struct OtaUpdate {
-    embed::string<767> payload;
+    embed::string<1400> payload;
 };
 static_assert(embed::Message<OtaUpdate>);
 
@@ -93,6 +95,12 @@ public:
 
     int publishLogs(std::string_view json, int qos = 0);
 
+    [[nodiscard]] const CreartsCredentials& credentials() const { return *credentials_; }
+
+    /// Firmware RPC catalog. Register handlers here; `rpc-list` is built-in.
+    [[nodiscard]] RpcRegistry& rpc() { return *rpc_; }
+    [[nodiscard]] const RpcRegistry& rpc() const { return *rpc_; }
+
     embed::Signal<AttributeUpdate> onAttributeUpdate;
     embed::Signal<AttributeResponse> onAttributeResponse;
     embed::Signal<RpcRequest> onRpcRequest;
@@ -104,6 +112,7 @@ private:
     const CreartsCredentials* credentials_ = nullptr;
     embed::MqttService* mqtt_ = nullptr;
     Topics topics_;
+    std::unique_ptr<RpcRegistry> rpc_;
     uint32_t nextRequestId_ = 1;
     bool subscribed_ = false;
 

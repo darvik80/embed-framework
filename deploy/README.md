@@ -19,7 +19,21 @@ docker compose up -d
 
 Same Docker/Podman network: Node-RED reaches the broker as hostname **`rabbitmq`** (port 1883).
 
-### Podman on Windows (WSL machine) — broken port publish
+### MQTT moved into the Go platform
+
+Do **not** run `fix-podman-ports.ps1` for `iot-platform-go`. The platform process **is** the MQTT broker on `:1883`. The old WSL `netsh portproxy` (`0.0.0.0:1883 → 127.0.0.1:1883`) makes Windows `svchost` steal LAN connections; ESP then hits RabbitMQ/loopback and fails with `transport_read(): EOF`.
+
+Clean leftovers (Admin PowerShell):
+
+```powershell
+cd D:\Projects\cpp\embed-framework\deploy
+.\scripts\remove-wsl-mqtt-forward.ps1
+# or: .\scripts\fix-podman-ports.ps1 -Remove
+```
+
+Then start the Go platform only. Firmware host = this PC LAN IP (`192.168.1.22`), port `1883`.
+
+### Podman on Windows (WSL machine) — broken port publish (legacy RabbitMQ only)
 
 **Symptom:** `podman ps` shows `0.0.0.0:1883->1883`, but from Windows
 `Test-NetConnection 127.0.0.1 -Port 1883` fails / connection refused.

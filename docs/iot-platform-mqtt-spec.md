@@ -408,6 +408,52 @@ Same response shape (`id`, `code`, `message`, `data`).
 
 Default RPC timeout: **30 s** (both directions). Caller treats missing response as `408`.
 
+### Built-in discovery: `rpc-list`
+
+Every firmware that uses `CreartsIotService::rpc()` must implement **`rpc-list`** (alias `rpc_list`). No params. Returns the catalog of methods available **on this device build**.
+
+Request:
+```json
+{ "id": 1, "method": "rpc-list", "params": {} }
+```
+
+Response `data` is a **JSON array**:
+```json
+[
+  { "method": "rpc-list", "params": {}, "required": [] },
+  {
+    "method": "echo",
+    "params": { "msg": { "type": "string", "required": true } },
+    "required": ["msg"]
+  },
+  {
+    "method": "set_led",
+    "description": "Set LED range color",
+    "params": {
+      "gpio": { "type": "int", "required": true },
+      "offset": { "type": "int", "required": true },
+      "length": { "type": "int", "required": true },
+      "r": { "type": "int", "required": false, "default": 255 },
+      "g": { "type": "int", "required": false, "default": 255 },
+      "b": { "type": "int", "required": false, "default": 255 },
+      "on": { "type": "bool", "required": false, "default": true }
+    },
+    "required": ["gpio", "offset", "length"]
+  }
+]
+```
+
+| Field | Meaning |
+|-------|---------|
+| `method` | RPC method name (as used in requests) |
+| `params.<name>.type` | `int` / `bool` / `string` / `number` |
+| `params.<name>.required` | Must be present in the request |
+| `params.<name>.default` | Omitted when there is no default; dashboard pre-fills the form |
+| `required` | Convenience list of required names (same as `params.*.required`) |
+| `description` | Optional human-readable summary |
+
+Dashboard RPC console should call `rpc-list` after the device is online and render a form from `params` (`type` / `required` / `default`).
+
 **QoS:** 1 request, 1 response
 
 ---
@@ -779,7 +825,7 @@ Do **not** use a direct exchange for device downlink when speaking MQTT — publ
 - [ ] LWT on status topic (`…/up/status` or `v1/s`); no app-level online/offline publish
 - [ ] Telemetry / events / attributes / RPC builders (`id` in body)
 - [ ] Subscribe `down/#` on connect
-- [ ] RPC handler registry + 30 s timeout + echo `id`
+- [x] RPC handler registry (`CreartsIotService::rpc()`) + built-in `rpc-list` + echo `id`
 - [ ] NTP with body `id` + numeric timestamps
 - [ ] OTA state machine (query, update, progress, cancel, verify sha256/sign)
 - [ ] Logs reporter

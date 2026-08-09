@@ -21,6 +21,65 @@ menu "Embed Framework — WiFi Configuration"
 
 endmenu
 
+menu "Embed Framework — Config Portal"
+
+    config EMBED_CONFIG_HTTP_STA
+        bool "Serve config HTTP on STA (LAN IP)"
+        default y
+        help
+            After WiFi connects, also serve the setup page on the device IP.
+            Disable to only expose the UI on the SoftAP config portal.
+
+    config EMBED_CONFIG_HTTP_PORT
+        int "Config HTTP port"
+        default 80
+        range 1 65535
+
+    config EMBED_CONFIG_AP_SSID_PREFIX
+        string "SoftAP SSID prefix"
+        default "embed"
+        help
+            AP name is "{prefix}-{MAC4}{MAC5}", e.g. embed-A1B2.
+
+    config EMBED_CONFIG_AP_PASSWORD
+        string "SoftAP password (empty = open)"
+        default ""
+        help
+            WPA2 password for the config AP. Leave empty for an open network.
+
+    config EMBED_CONFIG_RESET_GPIO
+        int "Factory-reset hold GPIO (-1 = disable)"
+        default 0
+        range -1 48
+        help
+            Active-low button (BOOT is usually GPIO 0). Hold while the app is
+            running — not during chip reset (GPIO 0 strap → download mode).
+
+    config EMBED_CONFIG_RESET_HOLD_MS
+        int "Factory-reset hold time (ms)"
+        default 3000
+        range 500 30000
+
+    config EMBED_CONFIG_RST_BURST_COUNT
+        int "EN/RST presses for factory reset (0 = disable)"
+        default 3
+        range 0 10
+        help
+            The board RST button is EN (chip reset), not a GPIO. ESP32-S3
+            often reports that press as POWERON (not EXT) and wipes RTC RAM;
+            the press counter is stored in NVS. Press RST N times quickly
+            (before the clear timer). Default 3.
+
+    config EMBED_CONFIG_RST_BURST_CLEAR_MS
+        int "Clear EN/RST press counter after (ms)"
+        default 10000
+        range 1000 60000
+        help
+            After the device has been running this long, the EN/RST press
+            counter is zeroed so a later single reset is just a reboot.
+
+endmenu
+
 menu "Embed Framework — MQTT Configuration"
 
     config EMBED_MQTT_BROKER_URI

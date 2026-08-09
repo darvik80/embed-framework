@@ -1,12 +1,15 @@
 idf_component_register(
     SRCS
         "src/credentials.cpp"
+        "src/credential_store.cpp"
         "src/topics.cpp"
         "src/telemetry.cpp"
         "src/attributes.cpp"
         "src/rpc_params.cpp"
+        "src/rpc_registry.cpp"
         "src/crearts_iot_service.cpp"
         "src/metrics_telemetry_bridge.cpp"
+        "src/ota_service.cpp"
     INCLUDE_DIRS
         "include"
     REQUIRES
@@ -14,6 +17,11 @@ idf_component_register(
         embed_core
         json
         log
+        app_update
+        esp_http_client
+        esp_app_format
+        mbedtls
+        esp-tls
 )
 
 target_compile_features(${COMPONENT_LIB} PUBLIC cxx_std_20)

@@ -305,7 +305,7 @@ UI must be practical, not a generic AI “purple SaaS” template. Prefer a dens
 | Device detail | status, metadata, connection info | map / notes |
 | Metrics | time-series charts (recharts/u-plot), key picker | export CSV |
 | Properties | reported (RO) + desired editor + save | diff / history |
-| RPC console | method + JSON params + result | saved presets |
+| RPC console | call `rpc-list` → form from `type`/`required`/`default` + invoke | saved presets |
 | Events | table + severity badges | ack/silence |
 | Logs | filterable device logs | live tail |
 | OTA | firmware list, push to device, progress | fleets / groups |
@@ -337,6 +337,7 @@ UI must be practical, not a generic AI “purple SaaS” template. Prefer a dens
 - Last telemetry age
 - Desired vs reported mismatch highlight
 - Quick actions: Reboot RPC, Request attributes, Trigger OTA
+- RPC console: on online, invoke `rpc-list`; build method picker + typed param form (`type` / `required` / `default`)
 
 ---
 

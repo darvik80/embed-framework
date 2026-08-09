@@ -24,7 +24,7 @@ components/<vendor>/   # other providers implementing embed::MqttCredentials etc
 ```
 
 Do not put product/demo services in framework components. Demo services live in `main/`.
-Secrets (WiFi password, Crearts access token) → `sdkconfig` / menuconfig, not source literals.
+Secrets (WiFi password, Crearts access token) → NVS `fctry` (seeded from `sdkconfig` / menuconfig on first boot), not source literals. Factory reset / config portal: `factoryResetSettings()`, `ConfigPortalService`, RPC `factory_reset` / `config_portal`. OTA rollback: keep image `PENDING_VERIFY` until MQTT; `checkCrashLoopRollback()` early in `app_main` (bootloader rollback + 3 failed boots / panic-WDT).
 
 ## Service pattern
 
@@ -63,7 +63,7 @@ private:
 | Credentials | `static` / outlives `MqttService` |
 | Slot connections | RAII via `Connection`; disconnect on destroy |
 | Camera FB | Never transfer sole ownership via Signal to N subscribers; single consumer or queue + `esp_camera_fb_return` |
-| EventLoop handlers | Keep short; no blocking HTTP/TLS/OTA on the embed event task |
+| EventLoop handlers | Keep short; no blocking HTTP/TLS/OTA on the embed event task. Stack is `EMBED_EVENT_TASK_STACK_SIZE` (8192) |
 
 ## State machines
 

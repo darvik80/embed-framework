@@ -112,11 +112,17 @@ public:
     ~WifiService() override;
 
     /// Initialize WiFi subsystem and start connection.
-    /// Uses CONFIG_EMBED_WIFI_SSID and CONFIG_EMBED_WIFI_PASSWORD from Kconfig.
+    /// SSID/password: NVS (`fctry` / `nvs`) if present, else Kconfig seed.
+    /// Call `enableSoftAp()` before `start()` for config-portal AP mode.
     void start() override;
 
     /// Stop WiFi, unregister handlers, and deinitialize.
     void stop() override;
+
+    /// SoftAP for the config portal (open or Kconfig password). Call before start().
+    void enableSoftAp();
+    [[nodiscard]] bool softApEnabled() const { return softAp_; }
+    [[nodiscard]] const char* apSsid() const;
 
     /// Framework signals — other services can subscribe to these.
     Signal<WifiConnected> onConnected;
@@ -185,6 +191,7 @@ public:
 private:
     int retryCount_ = 0;
     bool wifiInitialized_ = false;
+    bool softAp_ = false;
     wifi_config_t wifiConfig_ = {};
 
     // Handler instances for the default ESP-IDF event loop

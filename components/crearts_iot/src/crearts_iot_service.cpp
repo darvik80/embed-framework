@@ -1,5 +1,6 @@
 #include "crearts_iot/crearts_iot_service.hpp"
 #include "crearts_iot/rpc_params.hpp"
+#include "crearts_iot/rpc_registry.hpp"
 
 #include "embed/registry.hpp"
 #include "cJSON.h"
@@ -7,6 +8,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 
 namespace crearts::iot {
 
@@ -15,6 +17,7 @@ static const char* TAG = "CreartsIot";
 CreartsIotService::CreartsIotService(const CreartsCredentials& credentials)
     : credentials_(&credentials)
     , topics_(credentials.productId(), credentials.deviceId(), credentials.topicStyle())
+    , rpc_(std::make_unique<RpcRegistry>())
 {}
 
 void CreartsIotService::start()
@@ -302,6 +305,9 @@ void CreartsIotService::handleMessage(std::string_view topic, std::string_view p
         ESP_LOGI(TAG, "RPC req id=%lu method=%s",
                  static_cast<unsigned long>(req.requestId), req.method.c_str());
         onRpcRequest.emit(req);
+        if (rpc_ && !rpc_->dispatch(*this, req)) {
+            respondRpc(req.requestId, 404, "unknown method");
+        }
         return;
     }
 
@@ -338,6 +344,9 @@ void CreartsIotService::handleMessage(std::string_view topic, std::string_view p
     }
 
     if (Topics::isOtaUpdate(topic)) {
+        ESP_LOGI(TAG, "OTA update on %.*s (%u bytes)",
+                 static_cast<int>(topic.size()), topic.data(),
+                 static_cast<unsigned>(payload.size()));
         OtaUpdate upd{};
         upd.payload.assign(payload.data(), payload.size());
         onOtaUpdate.emit(upd);
@@ -345,6 +354,8 @@ void CreartsIotService::handleMessage(std::string_view topic, std::string_view p
     }
 
     if (Topics::isOtaCancel(topic)) {
+        ESP_LOGI(TAG, "OTA cancel on %.*s",
+                 static_cast<int>(topic.size()), topic.data());
         OtaCancel cancel{};
         cancel.payload.assign(payload.data(), payload.size());
         onOtaCancel.emit(cancel);

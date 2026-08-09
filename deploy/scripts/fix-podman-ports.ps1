@@ -1,9 +1,16 @@
-# Open MQTT :1883 from LAN to RabbitMQ in Podman (Windows/WSL).
-# MUST run in elevated (Admin) PowerShell — firewall rules need it.
+# OBSOLETE for iot-platform-go (MQTT is now embedded in the Go process).
+# Do NOT run this while the platform listens on :1883 — portproxy steals
+# LAN CONNECT (ESP sees transport EOF) and shares the port with svchost.
+#
+# Only for the old Podman RabbitMQ stack. To tear leftovers down:
 #
 #   cd deploy
-#   .\scripts\fix-podman-ports.ps1
 #   .\scripts\fix-podman-ports.ps1 -Remove
+#
+# Historical: open MQTT :1883 from LAN to RabbitMQ in Podman (Windows/WSL).
+# MUST run in elevated (Admin) PowerShell — firewall / portproxy need it.
+#
+#   .\scripts\fix-podman-ports.ps1
 #
 # Mirrored WSL (LAN IP on eth4/eth2 = Windows Wi-Fi): publish often already
 # listens on 192.168.x.x inside the VM; LAN is blocked by Hyper-V firewall.
@@ -99,7 +106,11 @@ function Open-MqttFirewall {
 
 function Remove-MqttExposure {
     Write-Host "Removing relay / portproxy / firewall leftovers..."
-    podman machine ssh -- "pkill -f crearts-port-relay || true" 2>$null | Out-Null
+    if (Get-Command podman -ErrorAction SilentlyContinue) {
+        try {
+            podman machine ssh -- "pkill -f crearts-port-relay || true" 2>$null | Out-Null
+        } catch {}
+    }
     foreach ($listen in (@($MqttPort) + $LegacyPorts | Select-Object -Unique)) {
         netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=$listen 2>$null | Out-Null
         netsh interface portproxy delete v4tov4 listenaddress=127.0.0.1 listenport=$listen 2>$null | Out-Null
@@ -112,6 +123,8 @@ function Remove-MqttExposure {
             ForEach-Object { Remove-NetFirewallHyperVRule -Name $_.Name -ErrorAction SilentlyContinue }
     } catch {}
     Write-Host "Done."
+    Write-Host "portproxy now:"
+    netsh interface portproxy show all
 }
 
 function Start-NatRelay {

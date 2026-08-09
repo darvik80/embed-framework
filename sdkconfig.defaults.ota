@@ -1,3 +1,6 @@
 # Appended via: idf.py -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.ota"
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions_ota.csv"
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+# Hang during init → reset → pending-verify / crash-loop rollback
+CONFIG_ESP_TASK_WDT_PANIC=y

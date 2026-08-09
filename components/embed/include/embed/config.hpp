@@ -21,7 +21,7 @@
 #endif
 
 #ifndef EMBED_EVENT_TASK_STACK_SIZE
-#define EMBED_EVENT_TASK_STACK_SIZE 4096
+#define EMBED_EVENT_TASK_STACK_SIZE 8192
 #endif
 
 // Max wait when posting to the embed event queue (ms).
@@ -39,7 +39,7 @@
 // Messages larger than this will fail the Message concept.
 // Increase if your messages (e.g. MetricsCollected, MqttMessageReceived) need more.
 #ifndef EMBED_MAX_EVENT_DATA_SIZE
-#define EMBED_MAX_EVENT_DATA_SIZE 1024
+#define EMBED_MAX_EVENT_DATA_SIZE 1600
 #endif
 
 // Maximum size of a service object in bytes.

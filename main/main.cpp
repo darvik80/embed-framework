@@ -4,6 +4,10 @@
 #include "embed_core/metrics_service.hpp"
 #include "embed_core/mqtt_credentials.hpp"
 #include "embed_core/mqtt_service.hpp"
+#include "embed_core/nvs_store.hpp"
+#include "embed_core/device_settings.hpp"
+#include "embed_core/firmware_slot.hpp"
+#include "embed_core/config_portal_service.hpp"
 #include "crearts_iot/crearts_iot.hpp"
 #include "embed_extra/led_strip_service.hpp"
 
@@ -26,6 +30,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 #include <string>
 
 namespace {
@@ -233,8 +238,8 @@ private:
             .add("appName", appName)
             .add("vendor", kAppVendor)
             .add("protocol", kAppProtocol)
-            .add("productId", CONFIG_EMBED_CREARTS_IOT_PRODUCT_ID)
-            .add("deviceId", CONFIG_EMBED_CREARTS_IOT_DEVICE_ID)
+            .add("productId", iot->credentials().productId())
+            .add("deviceId", iot->credentials().deviceId())
             .add("chip", chipModelName(chip.model))
             .add("chipCores", static_cast<int>(chip.cores))
             .add("idfVersion", idfVer)
@@ -284,7 +289,7 @@ private:
 
 // ── CreartsRpcDemo ──────────────────────────────────────────────────────
 
-/// Platform RPC: `echo`, `led_attach` / `led_detach` / `led_list` / `set_led`, `reboot`.
+/// Registers firmware RPC methods on CreartsIotService::rpc() (`rpc-list` is built-in).
 class CreartsRpcDemo : public embed::Service {
 public:
     const char* serviceName() const override { return "CreartsRpcDemo"; }
@@ -296,32 +301,55 @@ public:
             ESP_LOGE("CreartsRpc", "CreartsIotService not found");
             return;
         }
-        iot_ = iot;
-        rpcSlot_.connect(iot->onRpcRequest);
-        ESP_LOGI("CreartsRpc", "RPC: echo / led_attach / led_detach / led_list / set_led / reboot");
+
+        using crearts::iot::rpcBool;
+        using crearts::iot::rpcInt;
+        using crearts::iot::rpcStr;
+        auto& rpc = iot->rpc();
+
+        static constexpr crearts::iot::RpcParamDef kEcho[] = {rpcStr("msg")};
+        static constexpr crearts::iot::RpcParamDef kLedAttach[] = {
+            rpcInt("gpio"), rpcInt("count"), rpcInt("brightness", false, 0)};
+        static constexpr crearts::iot::RpcParamDef kLedDetach[] = {rpcInt("gpio")};
+        static constexpr crearts::iot::RpcParamDef kSetLed[] = {
+            rpcInt("gpio"),
+            rpcInt("offset"),
+            rpcInt("length"),
+            rpcInt("r", false, 255),
+            rpcInt("g", false, 255),
+            rpcInt("b", false, 255),
+            rpcBool("on", false, true)};
+        static constexpr crearts::iot::RpcParamDef kReboot[] = {rpcInt("delayMs", false, 500)};
+        static constexpr crearts::iot::RpcParamDef kFactoryReset[] = {rpcBool("confirm")};
+
+        rpc.add("echo", kEcho, onEcho, nullptr, "Echo a string");
+        rpc.add("led_attach", kLedAttach, onLedAttach, nullptr, "Attach WS2812 strip on GPIO");
+        rpc.add("led_detach", kLedDetach, onLedDetach, nullptr, "Detach strip on GPIO");
+        rpc.add("led_list", onLedList, nullptr, "List attached strips");
+        rpc.add("set_led", kSetLed, onSetLed, nullptr, "Set LED range color");
+        rpc.add("reboot", kReboot, onReboot, nullptr, "Reboot device");
+        rpc.add("restart", kReboot, onReboot, nullptr, "Restart device");
+        rpc.add("factory_reset", kFactoryReset, onFactoryReset, nullptr,
+                "Wipe fctry WiFi+token and reboot into config AP");
+        rpc.add("config_portal", onConfigPortal, nullptr,
+                "Reboot into config AP without wiping credentials");
+        rpc.add("ota_rollback", kFactoryReset, onOtaRollback, nullptr,
+                "Boot previous OTA slot (confirm=true)");
+
+        ESP_LOGI("CreartsRpc", "RPC registered (%u + rpc-list)", rpc.count());
     }
 
-    void stop() override {
-        rpcSlot_.disconnect();
-        iot_ = nullptr;
-    }
+    void stop() override {}
 
 private:
-    crearts::iot::CreartsIotService* iot_ = nullptr;
-    embed::Slot<crearts::iot::RpcRequest> rpcSlot_{onRpc, this};
-
-    static void replyJson(crearts::iot::CreartsIotService* iot,
+    static void replyJson(crearts::iot::CreartsIotService& iot,
                           uint32_t id,
                           int code,
                           const char* message,
                           cJSON* data)
     {
-        if (!iot) {
-            if (data) cJSON_Delete(data);
-            return;
-        }
         char* printed = data ? cJSON_PrintUnformatted(data) : nullptr;
-        iot->respondRpc(id, code, message, printed ? printed : "{}");
+        iot.respondRpc(id, code, message, printed ? printed : "{}");
         if (printed) free(printed);
         if (data) cJSON_Delete(data);
     }
@@ -335,21 +363,6 @@ private:
         esp_restart();
     }
 
-    static void handleEcho(crearts::iot::CreartsIotService* iot,
-                           uint32_t id,
-                           const crearts::iot::RpcParams& p)
-    {
-        std::string msg;
-        if (!p.get("msg", msg)) {
-            iot->respondRpc(id, 400, "missing params.msg");
-            return;
-        }
-        ESP_LOGW("CreartsRpc", "Echo: %s", msg.c_str());
-        cJSON* data = cJSON_CreateObject();
-        cJSON_AddStringToObject(data, "msg", msg.c_str());
-        replyJson(iot, id, 0, "ok", data);
-    }
-
     static embed::LedStripService* leds() {
         return embed::ServiceRegistry::instance().getService<embed::LedStripService>();
     }
@@ -360,28 +373,45 @@ private:
         return v;
     }
 
-    static void handleLedAttach(crearts::iot::CreartsIotService* iot,
-                                uint32_t id,
-                                const crearts::iot::RpcParams& p)
+    static void onEcho(crearts::iot::CreartsIotService& iot,
+                       uint32_t id,
+                       const crearts::iot::RpcParams& p,
+                       void*)
+    {
+        std::string msg;
+        if (!p.get("msg", msg)) {
+            iot.respondRpc(id, 400, "missing params.msg");
+            return;
+        }
+        ESP_LOGW("CreartsRpc", "Echo: %s", msg.c_str());
+        cJSON* data = cJSON_CreateObject();
+        cJSON_AddStringToObject(data, "msg", msg.c_str());
+        replyJson(iot, id, 0, "ok", data);
+    }
+
+    static void onLedAttach(crearts::iot::CreartsIotService& iot,
+                            uint32_t id,
+                            const crearts::iot::RpcParams& p,
+                            void*)
     {
         auto* strip = leds();
         if (!strip) {
-            iot->respondRpc(id, 503, "led strip service not available");
+            iot.respondRpc(id, 503, "led strip service not available");
             return;
         }
         int gpio = 0;
         int count = 0;
         if (!p.get("gpio", gpio) || !p.get("count", count)) {
-            iot->respondRpc(id, 400, "params.gpio and params.count required");
+            iot.respondRpc(id, 400, "params.gpio and params.count required");
             return;
         }
         if (gpio < 0 || count < 1 || count > 256) {
-            iot->respondRpc(id, 400, "invalid gpio/count");
+            iot.respondRpc(id, 400, "invalid gpio/count");
             return;
         }
         const int bri = clampByte(p.getInt("brightness", 0));
         if (!strip->attach(gpio, static_cast<uint16_t>(count), static_cast<uint8_t>(bri))) {
-            iot->respondRpc(id, 500, "led_attach failed (gpio busy / no RMT slot)");
+            iot.respondRpc(id, 500, "led_attach failed (gpio busy / no RMT slot)");
             return;
         }
         cJSON* data = cJSON_CreateObject();
@@ -391,22 +421,23 @@ private:
         replyJson(iot, id, 0, "ok", data);
     }
 
-    static void handleLedDetach(crearts::iot::CreartsIotService* iot,
-                                uint32_t id,
-                                const crearts::iot::RpcParams& p)
+    static void onLedDetach(crearts::iot::CreartsIotService& iot,
+                            uint32_t id,
+                            const crearts::iot::RpcParams& p,
+                            void*)
     {
         auto* strip = leds();
         if (!strip) {
-            iot->respondRpc(id, 503, "led strip service not available");
+            iot.respondRpc(id, 503, "led strip service not available");
             return;
         }
         int gpio = 0;
         if (!p.get("gpio", gpio)) {
-            iot->respondRpc(id, 400, "params.gpio required");
+            iot.respondRpc(id, 400, "params.gpio required");
             return;
         }
         if (!strip->detach(gpio)) {
-            iot->respondRpc(id, 404, "strip not attached on this gpio");
+            iot.respondRpc(id, 404, "strip not attached on this gpio");
             return;
         }
         cJSON* data = cJSON_CreateObject();
@@ -414,11 +445,14 @@ private:
         replyJson(iot, id, 0, "ok", data);
     }
 
-    static void handleLedList(crearts::iot::CreartsIotService* iot, uint32_t id)
+    static void onLedList(crearts::iot::CreartsIotService& iot,
+                          uint32_t id,
+                          const crearts::iot::RpcParams&,
+                          void*)
     {
         auto* strip = leds();
         if (!strip) {
-            iot->respondRpc(id, 503, "led strip service not available");
+            iot.respondRpc(id, 503, "led strip service not available");
             return;
         }
         embed::LedStripInfo infos[8] = {};
@@ -435,13 +469,14 @@ private:
         replyJson(iot, id, 0, "ok", data);
     }
 
-    static void handleSetLed(crearts::iot::CreartsIotService* iot,
-                             uint32_t id,
-                             const crearts::iot::RpcParams& p)
+    static void onSetLed(crearts::iot::CreartsIotService& iot,
+                         uint32_t id,
+                         const crearts::iot::RpcParams& p,
+                         void*)
     {
         auto* strip = leds();
         if (!strip) {
-            iot->respondRpc(id, 503, "led strip service not available");
+            iot.respondRpc(id, 503, "led strip service not available");
             return;
         }
 
@@ -449,16 +484,16 @@ private:
         int offset = 0;
         int length = 0;
         if (!p.get("gpio", gpio) || !p.get("offset", offset) || !p.get("length", length)) {
-            iot->respondRpc(id, 400, "params.gpio, offset and length required");
+            iot.respondRpc(id, 400, "params.gpio, offset and length required");
             return;
         }
         if (!strip->attached(gpio)) {
-            iot->respondRpc(id, 404, "strip not attached — call led_attach first");
+            iot.respondRpc(id, 404, "strip not attached — call led_attach first");
             return;
         }
         if (offset < 0 || length < 1 ||
             static_cast<uint32_t>(offset) + static_cast<uint32_t>(length) > strip->ledCount(gpio)) {
-            iot->respondRpc(id, 400, "led range out of bounds");
+            iot.respondRpc(id, 400, "led range out of bounds");
             return;
         }
 
@@ -476,7 +511,7 @@ private:
         if (!strip->setRange(gpio, static_cast<uint16_t>(offset), static_cast<uint16_t>(length),
                              static_cast<uint8_t>(r), static_cast<uint8_t>(g),
                              static_cast<uint8_t>(b))) {
-            iot->respondRpc(id, 500, "led update failed");
+            iot.respondRpc(id, 500, "led update failed");
             return;
         }
 
@@ -491,56 +526,75 @@ private:
         replyJson(iot, id, 0, "ok", data);
     }
 
-    static void handleReboot(crearts::iot::CreartsIotService* iot,
-                             uint32_t id,
-                             const crearts::iot::RpcParams& p)
+    static void onReboot(crearts::iot::CreartsIotService& iot,
+                         uint32_t id,
+                         const crearts::iot::RpcParams& p,
+                         void*)
     {
         int delayMs = p.getInt("delayMs", 500);
         if (delayMs < 0) delayMs = 0;
         if (delayMs > 60000) delayMs = 60000;
 
-        iot->respondRpc(id, 0, "ok", "{\"rebooting\":true}");
+        iot.respondRpc(id, 0, "ok", "{\"rebooting\":true}");
         xTaskCreate(rebootTask, "rpc_reboot", 2048,
                     reinterpret_cast<void*>(static_cast<uintptr_t>(delayMs)),
                     5, nullptr);
     }
 
-    static void onRpc(const crearts::iot::RpcRequest& req, void* ctx) {
-        auto* self = static_cast<CreartsRpcDemo*>(ctx);
-        ESP_LOGI("CreartsRpc", "RPC id=%lu method=%s params=%s",
-                 static_cast<unsigned long>(req.requestId),
-                 req.method.c_str(),
-                 req.params.c_str());
-        if (!self->iot_) return;
+    static void onFactoryReset(crearts::iot::CreartsIotService& iot,
+                               uint32_t id,
+                               const crearts::iot::RpcParams& p,
+                               void*)
+    {
+        bool confirm = false;
+        if (!p.get("confirm", confirm) || !confirm) {
+            iot.respondRpc(id, 400, "params.confirm=true required");
+            return;
+        }
+        const esp_err_t err = embed::factoryResetSettings();
+        if (err != ESP_OK) {
+            iot.respondRpc(id, 500, esp_err_to_name(err));
+            return;
+        }
+        iot.respondRpc(id, 0, "ok", "{\"portal\":true}");
+        embed::scheduleReboot(800);
+    }
 
-        const crearts::iot::RpcParams params(req.params.c_str());
+    static void onConfigPortal(crearts::iot::CreartsIotService& iot,
+                               uint32_t id,
+                               const crearts::iot::RpcParams&,
+                               void*)
+    {
+        const esp_err_t err = embed::requestConfigPortal();
+        if (err != ESP_OK) {
+            iot.respondRpc(id, 500, esp_err_to_name(err));
+            return;
+        }
+        iot.respondRpc(id, 0, "ok", "{\"portal\":true}");
+        embed::scheduleReboot(800);
+    }
 
-        if (req.method == "echo") {
-            handleEcho(self->iot_, req.requestId, params);
+    static void onOtaRollback(crearts::iot::CreartsIotService& iot,
+                              uint32_t id,
+                              const crearts::iot::RpcParams& p,
+                              void*)
+    {
+        bool confirm = false;
+        if (!p.get("confirm", confirm) || !confirm) {
+            iot.respondRpc(id, 400, "params.confirm=true required");
             return;
         }
-        if (req.method == "led_attach") {
-            handleLedAttach(self->iot_, req.requestId, params);
+        const esp_err_t err = embed::rollbackFirmware();
+        if (err == ESP_ERR_NOT_FOUND) {
+            iot.respondRpc(id, 404, "no previous firmware slot");
             return;
         }
-        if (req.method == "led_detach") {
-            handleLedDetach(self->iot_, req.requestId, params);
+        if (err != ESP_OK) {
+            iot.respondRpc(id, 500, esp_err_to_name(err));
             return;
         }
-        if (req.method == "led_list") {
-            handleLedList(self->iot_, req.requestId);
-            return;
-        }
-        if (req.method == "set_led") {
-            handleSetLed(self->iot_, req.requestId, params);
-            return;
-        }
-        if (req.method == "reboot") {
-            handleReboot(self->iot_, req.requestId, params);
-            return;
-        }
-
-        self->iot_->respondRpc(req.requestId, 404, "unknown method");
+        iot.respondRpc(id, 0, "ok", "{\"rollback\":true}");
+        embed::scheduleReboot(800);
     }
 };
 
@@ -612,9 +666,31 @@ private:
 extern "C" void app_main() {
     ESP_LOGI(TAG, "embed-framework → Crearts IoT Platform");
 
+    // GPIO 0 is a strapping pin: held at chip RESET → UART download mode.
+    // Watch BOOT while the app runs; also accept a hold already in progress.
+    embed::startFactoryResetGpioWatch();
+
+    if (embed::NvsStore::initFlash() != ESP_OK) {
+        ESP_LOGE(TAG, "NVS init failed");
+        embed::failUnconfirmedFirmware("nvs init failed");
+        return;
+    }
+
+    const bool rstBurst = embed::checkRstBurstFactoryReset();
+    const bool gpioHold = embed::factoryResetGpioHeld();
+    if (rstBurst || gpioHold) {
+        ESP_LOGW(TAG, "factory reset — wiping fctry + config portal (rst=%d gpio=%d)",
+                 rstBurst ? 1 : 0, gpioHold ? 1 : 0);
+        embed::factoryResetSettings();
+    }
+
+    // Before TLS / services — crash-loop here still increments and can roll back.
+    embed::checkCrashLoopRollback();
+
     esp_err_t ret = esp_tls_init_global_ca_store();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to init global CA store: %s", esp_err_to_name(ret));
+        embed::failUnconfirmedFirmware("tls ca store failed");
         return;
     }
 
@@ -622,20 +698,13 @@ extern "C" void app_main() {
     ret = esp_crt_bundle_attach(NULL);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set CA bundle: %s", esp_err_to_name(ret));
+        embed::failUnconfirmedFirmware("crt bundle failed");
         return;
     }
 
     embed::EventLoop::instance().init();
 
-    if (CONFIG_EMBED_CREARTS_IOT_HOST[0] == '\0' ||
-        CONFIG_EMBED_CREARTS_IOT_ACCESS_TOKEN[0] == '\0' ||
-        CONFIG_EMBED_CREARTS_IOT_PRODUCT_ID[0] == '\0' ||
-        CONFIG_EMBED_CREARTS_IOT_DEVICE_ID[0] == '\0') {
-        ESP_LOGE(TAG,
-                 "Crearts Kconfig incomplete — set EMBED_CREARTS_IOT_* "
-                 "(product/device/host/token) in menuconfig");
-        return;
-    }
+    const bool portal = embed::needsConfigPortal();
 
     const auto topicStyle =
 #ifdef CONFIG_EMBED_CREARTS_IOT_TOPIC_SHORT
@@ -644,54 +713,69 @@ extern "C" void app_main() {
         crearts::iot::TopicStyle::Full;
 #endif
 
-    static auto creartsCreds = crearts::iot::CreartsCredentials::createAccessToken(
-        CONFIG_EMBED_CREARTS_IOT_PRODUCT_ID,
-        CONFIG_EMBED_CREARTS_IOT_DEVICE_ID,
-        CONFIG_EMBED_CREARTS_IOT_HOST,
-        CONFIG_EMBED_CREARTS_IOT_ACCESS_TOKEN,
-        topicStyle,
+    static std::optional<crearts::iot::CreartsCredentials> creartsCreds;
+    if (!portal) {
+        creartsCreds = crearts::iot::loadOrSeedCredentials(
+            CONFIG_EMBED_CREARTS_IOT_PRODUCT_ID,
+            CONFIG_EMBED_CREARTS_IOT_DEVICE_ID,
+            CONFIG_EMBED_CREARTS_IOT_HOST,
+            CONFIG_EMBED_CREARTS_IOT_ACCESS_TOKEN,
+            topicStyle,
 #ifdef CONFIG_EMBED_CREARTS_IOT_USE_TLS
-        true,
+            true,
 #else
-        false,
+            false,
 #endif
-        static_cast<uint16_t>(CONFIG_EMBED_CREARTS_IOT_PORT));
-
-    if (!creartsCreds || !creartsCreds->isValid()) {
-        ESP_LOGE(TAG, "Crearts credentials invalid — abort");
-        return;
+            static_cast<uint16_t>(CONFIG_EMBED_CREARTS_IOT_PORT));
     }
 
-    ESP_LOGI(TAG, "Crearts MQTT client_id=%s uri=%s style=%s",
-             creartsCreds->clientId(), creartsCreds->brokerUri(),
-#ifdef CONFIG_EMBED_CREARTS_IOT_TOPIC_SHORT
-             "short"
-#else
-             "full"
-#endif
-    );
-
     auto& registry = embed::ServiceRegistry::instance();
-    registry.createService<embed::WifiService>();
+    auto* wifi = registry.createService<embed::WifiService>();
+    if (portal) {
+        wifi->enableSoftAp();
+    }
     registry.createService<embed::MetricsService>();
-    registry.createService<embed::MqttService>(*creartsCreds);
-    registry.createService<crearts::iot::CreartsIotService>(*creartsCreds);
-    registry.createService<crearts::iot::MetricsTelemetryBridge>();
-    registry.createService<CreartsDeviceInfo>();
+    registry.createService<embed::ConfigPortalService>();
+
+    const bool mqttOk = !portal && creartsCreds && creartsCreds->isValid();
+    if (mqttOk) {
+        ESP_LOGI(TAG, "Crearts MQTT client_id=%s uri=%s style=%s",
+                 creartsCreds->clientId(), creartsCreds->brokerUri(),
+                 creartsCreds->topicStyle() == crearts::iot::TopicStyle::Short
+                     ? "short"
+                     : "full");
+        registry.createService<embed::MqttService>(*creartsCreds);
+        registry.createService<crearts::iot::CreartsIotService>(*creartsCreds);
+        registry.createService<crearts::iot::MetricsTelemetryBridge>();
+        registry.createService<crearts::iot::CreartsOtaService>();
+        registry.createService<CreartsDeviceInfo>();
+        registry.createService<CreartsRpcDemo>();
+    } else if (!portal) {
+        ESP_LOGW(TAG,
+                 "Crearts creds missing — config HTTP on STA; "
+                 "or hold BOOT to open SoftAP portal");
+    }
+
 #ifdef CONFIG_EMBED_LED_STRIP
     auto leds = registry.createService<embed::LedStripService>();
 #endif
-    registry.createService<CreartsRpcDemo>();
     registry.createService<MonitorService>();
 
-    ESP_LOGI(TAG, "services=%zu free_heap=%lu",
+    ESP_LOGI(TAG, "services=%zu free_heap=%lu portal=%d",
              registry.count(),
-             static_cast<unsigned long>(esp_get_free_heap_size()));
+             static_cast<unsigned long>(esp_get_free_heap_size()),
+             portal ? 1 : 0);
 
     registry.startAll();
-    ESP_LOGI(TAG, "running — WiFi+MQTT → Crearts (%s.%s)",
-             CONFIG_EMBED_CREARTS_IOT_PRODUCT_ID,
-             CONFIG_EMBED_CREARTS_IOT_DEVICE_ID);
+    if (portal) {
+        ESP_LOGW(TAG, "CONFIG PORTAL AP=%s → http://192.168.4.1/", wifi->apSsid());
+    } else if (mqttOk) {
+        ESP_LOGI(TAG, "running — WiFi+MQTT → Crearts (%.*s.%.*s)",
+                 static_cast<int>(creartsCreds->productId().size()),
+                 creartsCreds->productId().data(),
+                 static_cast<int>(creartsCreds->deviceId().size()),
+                 creartsCreds->deviceId().data());
+    }
 
 #ifdef CONFIG_EMBED_LED_STRIP
     leds->attach(17, 8);
