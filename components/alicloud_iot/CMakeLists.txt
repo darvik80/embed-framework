@@ -17,11 +17,11 @@ idf_component_register(
         embed
         embed_core
         mqtt
-        json
         esp_wifi
         esp_https_ota
         app_update
         esp_http_client
+        cjson
     PRIV_REQUIRES
         mbedtls
         hal

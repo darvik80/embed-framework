@@ -7,7 +7,7 @@
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "mbedtls/md5.h"
+#include "embed/crypto.hpp"
 #include "cJSON.h"
 #include <array>
 #include <cctype>
@@ -355,14 +355,11 @@ void OtaModule::performOtaUpdate(const OtaFirmwareInfo& firmware)
     int totalReceived = 0;
     int lastPercent   = 0;
 
-    mbedtls_md5_context md5Ctx;
-    mbedtls_md5_init(&md5Ctx);
-    mbedtls_md5_starts(&md5Ctx);
+    embed::crypto::Md5 md5;
 
     while (true) {
         int bytesRead = esp_http_client_read(httpClient, downloadBuffer, OTA_HTTP_BUFFER_SIZE);
         if (bytesRead < 0) {
-            mbedtls_md5_free(&md5Ctx);
             esp_http_client_cleanup(httpClient);
             esp_ota_abort(otaHandle);
             reportProgress(static_cast<int>(OtaProgressStep::DownloadError), "HTTP read error");
@@ -370,10 +367,10 @@ void OtaModule::performOtaUpdate(const OtaFirmwareInfo& firmware)
         }
         if (bytesRead == 0) break;
 
-        mbedtls_md5_update(&md5Ctx, reinterpret_cast<const uint8_t*>(downloadBuffer), static_cast<size_t>(bytesRead));
+        md5.update(reinterpret_cast<const uint8_t*>(downloadBuffer),
+                   static_cast<size_t>(bytesRead));
 
         if (esp_ota_write(otaHandle, downloadBuffer, bytesRead) != ESP_OK) {
-            mbedtls_md5_free(&md5Ctx);
             esp_http_client_cleanup(httpClient);
             esp_ota_abort(otaHandle);
             reportProgress(static_cast<int>(OtaProgressStep::FlashError), "Flash write failed");
@@ -394,8 +391,11 @@ void OtaModule::performOtaUpdate(const OtaFirmwareInfo& firmware)
     ESP_LOGI(TAG, "Download complete, %d bytes", totalReceived);
 
     std::array<uint8_t, 16> digest{};
-    mbedtls_md5_finish(&md5Ctx, digest.data());
-    mbedtls_md5_free(&md5Ctx);
+    if (!md5.finish(digest.data())) {
+        esp_ota_abort(otaHandle);
+        reportProgress(static_cast<int>(OtaProgressStep::VerifyError), "MD5 failed");
+        return;
+    }
 
     if (!firmware.md5.empty() && !verifyMd5(digest, firmware.md5)) {
         esp_ota_abort(otaHandle);

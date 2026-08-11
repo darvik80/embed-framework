@@ -4,9 +4,9 @@
 //
 
 #include "alicloud_oss_auth.h"
+#include "embed/crypto.hpp"
 #include <esp_log.h>
 #include <string.h>
-#include <mbedtls/sha256.h>
 #include <embed/string.hpp>
 
 // Canonical headers for OSS V4 signature (must be sorted)
@@ -65,41 +65,16 @@ static void encode_hex(char *dest, const uint8_t *src, size_t srclen) {
 static void hmac_sha256(const uint8_t *key, size_t key_len,
                         const char *msg, size_t msg_len,
                         uint8_t output[SHA256_DIGEST_SIZE]) {
-    uint8_t k_ipad[SHA256_KEY_IOPAD_SIZE] = {0};
-    uint8_t k_opad[SHA256_KEY_IOPAD_SIZE] = {0};
-
-    memcpy(k_ipad, key, key_len);
-    memcpy(k_opad, key, key_len);
-
-    for (int i = 0; i < SHA256_KEY_IOPAD_SIZE; i++) {
-        k_ipad[i] ^= 0x36;
-        k_opad[i] ^= 0x5c;
-    }
-
-    mbedtls_sha256_context ctx;
-    mbedtls_sha256_init(&ctx);
-    mbedtls_sha256_starts(&ctx, 0);
-    mbedtls_sha256_update(&ctx, k_ipad, SHA256_KEY_IOPAD_SIZE);
-    mbedtls_sha256_update(&ctx, (const uint8_t *)msg, msg_len);
-    mbedtls_sha256_finish(&ctx, output);
-
-    mbedtls_sha256_starts(&ctx, 0);
-    mbedtls_sha256_update(&ctx, k_opad, SHA256_KEY_IOPAD_SIZE);
-    mbedtls_sha256_update(&ctx, output, SHA256_DIGEST_SIZE);
-    mbedtls_sha256_finish(&ctx, output);
-    mbedtls_sha256_free(&ctx);
+    embed::crypto::hmacSha256(key, key_len,
+                              reinterpret_cast<const uint8_t*>(msg), msg_len,
+                              output);
 }
 
 /**
  * Compute SHA256 hash
  */
 static void compute_sha256(const char *msg, size_t len, uint8_t output[SHA256_DIGEST_SIZE]) {
-    mbedtls_sha256_context ctx;
-    mbedtls_sha256_init(&ctx);
-    mbedtls_sha256_starts(&ctx, 0);
-    mbedtls_sha256_update(&ctx, (const uint8_t *)msg, len);
-    mbedtls_sha256_finish(&ctx, output);
-    mbedtls_sha256_free(&ctx);
+    embed::crypto::sha256(reinterpret_cast<const uint8_t*>(msg), len, output);
 }
 
 /**

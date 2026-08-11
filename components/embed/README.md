@@ -16,6 +16,7 @@ Include `embed/embed.hpp` or specific headers under `include/embed/`.
 | `string.hpp` / `types.hpp` | Trivially-copyable containers |
 | `state_machine.hpp` | CRTP SM helpers |
 | `config.hpp` | Compile-time limits |
+| `crypto.hpp` | SHA-256 / MD5 / HMAC (IDF 5 legacy mbedtls + IDF 6 PSA) |
 
 ## Rules of thumb
 

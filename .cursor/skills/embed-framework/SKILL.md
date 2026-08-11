@@ -24,6 +24,7 @@ components/<vendor>/   # other providers implementing embed::MqttCredentials etc
 ```
 
 Do not put product/demo services in framework components. Demo services live in `main/`.
+Use `embed/crypto.hpp` for SHA-256 / MD5 / HMAC — works on ESP-IDF 5.x (legacy mbedtls) and 6.x (PSA Crypto); do not include `mbedtls/sha256.h` directly.
 Secrets (WiFi password, Crearts access token) → NVS `fctry` (seeded from `sdkconfig` / menuconfig on first boot), not source literals. Factory reset / config portal: `factoryResetSettings()`, `ConfigPortalService`, RPC `factory_reset` / `config_portal` / `import_credentials`. JSON creds: `importCredentialsJson` / `GET /credentials.json`. OTA rollback: keep image `PENDING_VERIFY` until MQTT; `checkCrashLoopRollback()` early in `app_main` (bootloader rollback + 3 failed boots / panic-WDT).
 
 ## Service pattern

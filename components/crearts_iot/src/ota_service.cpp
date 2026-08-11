@@ -1,6 +1,7 @@
 #include "crearts_iot/ota_service.hpp"
 
 #include "embed/registry.hpp"
+#include "embed/crypto.hpp"
 #include "embed_core/firmware_slot.hpp"
 #include "embed_core/mqtt_service.hpp"
 #include "cJSON.h"
@@ -12,7 +13,6 @@
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "mbedtls/sha256.h"
 
 #include <cctype>
 #include <cstring>
@@ -73,6 +73,7 @@ void OtaService::start()
             .arg = this,
             .dispatch_method = ESP_TIMER_TASK,
             .name = "ota_verify",
+            .skip_unhandled_events = true
         };
         if (esp_timer_create(&args, &verifyTimer_) == ESP_OK) {
             esp_timer_start_once(verifyTimer_, 90ULL * 1000 * 1000);
@@ -321,9 +322,7 @@ void OtaService::perform(const Firmware& fw)
         contentLength = fw.size;
     }
 
-    mbedtls_sha256_context sha;
-    mbedtls_sha256_init(&sha);
-    mbedtls_sha256_starts(&sha, 0);
+    embed::crypto::Sha256 sha;
 
     static char buf[kHttpBuf];
     int total = 0;
@@ -331,7 +330,6 @@ void OtaService::perform(const Firmware& fw)
 
     while (true) {
         if (cancel_.load()) {
-            mbedtls_sha256_free(&sha);
             esp_http_client_cleanup(http);
             esp_ota_abort(ota);
             report(fw.module.c_str(), -4, "cancelled");
@@ -340,7 +338,6 @@ void OtaService::perform(const Firmware& fw)
 
         const int n = esp_http_client_read(http, buf, kHttpBuf);
         if (n < 0) {
-            mbedtls_sha256_free(&sha);
             esp_http_client_cleanup(http);
             esp_ota_abort(ota);
             report(fw.module.c_str(), -1, "http read error");
@@ -348,9 +345,8 @@ void OtaService::perform(const Firmware& fw)
         }
         if (n == 0) break;
 
-        mbedtls_sha256_update(&sha, reinterpret_cast<const uint8_t*>(buf), static_cast<size_t>(n));
+        sha.update(reinterpret_cast<const uint8_t*>(buf), static_cast<size_t>(n));
         if (esp_ota_write(ota, buf, n) != ESP_OK) {
-            mbedtls_sha256_free(&sha);
             esp_http_client_cleanup(http);
             esp_ota_abort(ota);
             report(fw.module.c_str(), -3, "flash write failed");
@@ -371,8 +367,11 @@ void OtaService::perform(const Firmware& fw)
     ESP_LOGI(TAG, "Download complete, %d bytes", total);
 
     uint8_t digest[32]{};
-    mbedtls_sha256_finish(&sha, digest);
-    mbedtls_sha256_free(&sha);
+    if (!sha.finish(digest)) {
+        esp_ota_abort(ota);
+        report(fw.module.c_str(), -2, "sha256 failed");
+        return;
+    }
 
     if (!fw.sha256.empty() && !hexEqual(digest, sizeof(digest), fw.sha256)) {
         esp_ota_abort(ota);

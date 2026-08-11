@@ -2,3 +2,4 @@ version: "1.0.0"
 description: "ThingsBoard MQTT device API for embed-framework"
 dependencies:
   idf: ">=5.5"
+  espressif/cjson: "^1.7.19"

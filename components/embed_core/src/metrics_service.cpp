@@ -42,6 +42,7 @@ void MetricsService::start() {
         .arg = this,
         .dispatch_method = ESP_TIMER_TASK,
         .name = "metrics_timer",
+        .skip_unhandled_events = true
     };
     esp_timer_create(&args, &timer_);
     esp_timer_start_periodic(timer_, CONFIG_EMBED_METRICS_INTERVAL_MS * 1000);

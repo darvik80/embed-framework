@@ -1,6 +1,5 @@
 #include "alicloud_iot/alicloud_credentials.hpp"
-#include <mbedtls/sha256.h>
-#include <algorithm>
+#include "embed/crypto.hpp"
 #include <format>
 
 
@@ -19,37 +18,14 @@ constexpr size_t SHA256_DIGEST_SIZE    = 32;
 bool hmac_sha256(std::string_view msg, std::string_view key,
                  std::array<uint8_t, SHA256_DIGEST_SIZE>& output)
 {
-    std::array<uint8_t, SHA256_KEY_IOPAD_SIZE> k_ipad{};
-    std::array<uint8_t, SHA256_KEY_IOPAD_SIZE> k_opad{};
-    std::array<uint8_t, SHA256_DIGEST_SIZE>    hash{};
-
     if (msg.empty() || key.empty() || key.size() > SHA256_KEY_IOPAD_SIZE) {
         return false;
     }
 
-    std::copy(key.begin(), key.end(), k_ipad.begin());
-    std::copy(key.begin(), key.end(), k_opad.begin());
-
-    for (size_t i = 0; i < SHA256_KEY_IOPAD_SIZE; ++i) {
-        k_ipad[i] ^= 0x36;
-        k_opad[i] ^= 0x5c;
-    }
-
-    mbedtls_sha256_context ctx;
-    mbedtls_sha256_init(&ctx);
-    mbedtls_sha256_starts(&ctx, 0);
-    mbedtls_sha256_update(&ctx, k_ipad.data(), SHA256_KEY_IOPAD_SIZE);
-    mbedtls_sha256_update(&ctx,
-        reinterpret_cast<const unsigned char*>(msg.data()), msg.size());
-    mbedtls_sha256_finish(&ctx, hash.data());
-
-    mbedtls_sha256_starts(&ctx, 0);
-    mbedtls_sha256_update(&ctx, k_opad.data(), SHA256_KEY_IOPAD_SIZE);
-    mbedtls_sha256_update(&ctx, hash.data(), SHA256_DIGEST_SIZE);
-    mbedtls_sha256_finish(&ctx, output.data());
-    mbedtls_sha256_free(&ctx);
-
-    return true;
+    return embed::crypto::hmacSha256(
+        reinterpret_cast<const uint8_t*>(key.data()), key.size(),
+        reinterpret_cast<const uint8_t*>(msg.data()), msg.size(),
+        output.data());
 }
 
 std::string bytes_to_hex(const std::array<uint8_t, SHA256_DIGEST_SIZE>& input)

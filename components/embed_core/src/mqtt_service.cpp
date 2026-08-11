@@ -114,6 +114,7 @@ void MqttService::onStateChanged(const TransitionTo<MqttDisconnectedState>&) {
                 .arg = this,
                 .dispatch_method = ESP_TIMER_TASK,
                 .name = "mqtt_reconnect",
+                .skip_unhandled_events = true
             };
             esp_timer_create(&args, &reconnectTimer_);
         }

@@ -11,9 +11,9 @@ idf_component_register(
     REQUIRES
         embed
         embed_core
-        json
         log
         esp_hw_support
+        cjson
 )
 
 target_compile_features(${COMPONENT_LIB} PUBLIC cxx_std_20)

@@ -120,6 +120,7 @@ static void armCrashClearTimer()
         .arg = nullptr,
         .dispatch_method = ESP_TIMER_TASK,
         .name = "fw_crash_clr",
+        .skip_unhandled_events = true
     };
     if (esp_timer_create(&args, &s_crashClearTimer) == ESP_OK) {
         esp_timer_start_once(s_crashClearTimer, kCrashClearUs);

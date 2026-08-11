@@ -366,8 +366,13 @@ esp_err_t importCredentialsJson(const char* json)
 {
     WifiSettings wifi{};
     CreartsSettings crearts{};
-    loadWifiSettings(wifi);
-    loadCreartsSettings(crearts);
+    if (!loadWifiSettings(wifi))
+    {
+        ESP_LOGW(TAG, "no wifi settings found");
+    }
+    if (loadCreartsSettings(crearts)) {
+        ESP_LOGW(TAG, "no crearts settings found");
+    }
 
     const esp_err_t parsed = parseCredentialsJson(json, wifi, crearts);
     if (parsed != ESP_OK) {
@@ -402,8 +407,13 @@ esp_err_t exportCredentialsJson(char* out, size_t outLen, bool includeSecrets)
 
     WifiSettings wifi{};
     CreartsSettings crearts{};
-    loadWifiSettings(wifi);
-    loadCreartsSettings(crearts);
+    if (!loadWifiSettings(wifi))
+    {
+        ESP_LOGW(TAG, "no wifi settings found");
+    }
+    if (loadCreartsSettings(crearts)) {
+        ESP_LOGW(TAG, "no crearts settings found");
+    }
 
     cJSON* root = cJSON_CreateObject();
     if (!root) {
@@ -761,6 +771,7 @@ bool checkRstBurstFactoryReset()
                 .arg = nullptr,
                 .dispatch_method = ESP_TIMER_TASK,
                 .name = "rst_burst",
+                .skip_unhandled_events = true
             };
             if (esp_timer_create(&args, &s_rstClearTimer) != ESP_OK) {
                 ESP_LOGW(TAG, "EN/RST clear timer create failed");

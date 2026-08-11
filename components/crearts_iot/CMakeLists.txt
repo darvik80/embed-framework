@@ -16,7 +16,6 @@ idf_component_register(
     REQUIRES
         embed
         embed_core
-        json
         log
         app_update
         esp_http_client
@@ -24,6 +23,7 @@ idf_component_register(
         esp_hw_support
         mbedtls
         esp-tls
+        cjson
 )
 
 target_compile_features(${COMPONENT_LIB} PUBLIC cxx_std_20)

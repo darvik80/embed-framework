@@ -3,16 +3,17 @@ idf_component_register(
         "src/registry.cpp"
         "src/event_loop.cpp"
         "src/signal_slot.cpp"
+        "src/crypto.cpp"
     INCLUDE_DIRS "include"
-    REQUIRES "esp_event" "esp_system" "freertos"
+    REQUIRES "esp_event" "esp_system" "freertos" "mbedtls"
     PRIV_REQUIRES ""
 )
 
 # C++20
 target_compile_features(${COMPONENT_LIB} PUBLIC cxx_std_20)
 
-# Enable RTTI for dynamic_cast
-target_compile_options(${COMPONENT_LIB} PUBLIC -frtti)
+# Enable RTTI for dynamic_cast (CXX only — do not propagate to C sources)
+target_compile_options(${COMPONENT_LIB} PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:-frtti>")
 
 # Keep exceptions disabled (embedded)
 target_compile_options(${COMPONENT_LIB} PRIVATE -fno-exceptions)

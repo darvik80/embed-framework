@@ -71,6 +71,7 @@ public:
             .arg = this,
             .dispatch_method = ESP_TIMER_TASK,
             .name = "blink_timer",
+            .skip_unhandled_events = true
         };
         esp_timer_create(&args, &timer_);
         esp_timer_start_periodic(timer_, 500'000); // 500ms
@@ -119,6 +120,7 @@ public:
             .arg = this,
             .dispatch_method = ESP_TIMER_TASK,
             .name = "button_sim_timer",
+            .skip_unhandled_events = true
         };
         esp_timer_create(&args, &timer_);
         esp_timer_start_periodic(timer_, 2'000'000); // 2s

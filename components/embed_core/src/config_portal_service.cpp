@@ -127,8 +127,13 @@ std::string buildIndexHtml(const char* query)
 {
     WifiSettings wifi{};
     CreartsSettings crearts{};
-    loadWifiSettings(wifi);
-    loadCreartsSettings(crearts);
+    if (!loadWifiSettings(wifi))
+    {
+        ESP_LOGW(TAG, "no wifi settings found");
+    }
+    if (loadCreartsSettings(crearts)) {
+        ESP_LOGW(TAG, "no crearts settings found");
+    }
 
     WifiSettings bakW{};
     CreartsSettings bakC{};
@@ -320,8 +325,13 @@ esp_err_t handleSave(httpd_req_t* req)
 
     WifiSettings wifi{};
     CreartsSettings crearts{};
-    loadWifiSettings(wifi);
-    loadCreartsSettings(crearts);
+    if (!loadWifiSettings(wifi))
+    {
+        ESP_LOGW(TAG, "no wifi settings found");
+    }
+    if (loadCreartsSettings(crearts)) {
+        ESP_LOGW(TAG, "no crearts settings found");
+    }
 
     char buf[256]{};
     if (!formGet(body.c_str(), "ssid", buf, sizeof(buf)) || buf[0] == '\0') {
