@@ -85,7 +85,6 @@ void DeviceInfo::publishReported(IotService* iot)
 
     AttributeBuilder attrs;
     attrs.add("version", version)
-        .add("firmwareVersion", version)
         .add("model", kAppModel)
         .add("appName", appName)
         .add("vendor", kAppVendor)

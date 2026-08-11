@@ -662,7 +662,7 @@ extern "C" void app_main() {
     }
 
 #ifdef CONFIG_EMBED_LED_STRIP
-    auto leds = registry.createService<embed::LedStripService>();
+    registry.createService<embed::LedStripService>();
 #endif
     registry.createService<MonitorService>();
 
