@@ -56,11 +56,11 @@ static_assert(embed::Message<OtaCancel>);
 /// Presence: platform detects online from the MQTT session; offline via LWT
 /// on the status topic (configured in CreartsCredentials).
 /// Correlation for RPC / attributes / NTP uses JSON field `"id"`.
-class CreartsIotService : public embed::Service {
+class IotService : public embed::Service {
 public:
-    explicit CreartsIotService(const CreartsCredentials& credentials);
+    explicit IotService(const CreartsCredentials& credentials);
 
-    const char* serviceName() const override { return "CreartsIotService"; }
+    const char* serviceName() const override { return "Iot"; }
 
     void start() override;
     void stop() override;

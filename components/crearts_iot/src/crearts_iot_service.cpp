@@ -14,13 +14,13 @@ namespace crearts::iot {
 
 static const char* TAG = "CreartsIot";
 
-CreartsIotService::CreartsIotService(const CreartsCredentials& credentials)
+IotService::IotService(const CreartsCredentials& credentials)
     : credentials_(&credentials)
     , topics_(credentials.productId(), credentials.deviceId(), credentials.topicStyle())
     , rpc_(std::make_unique<RpcRegistry>())
 {}
 
-void CreartsIotService::start()
+void IotService::start()
 {
     mqtt_ = embed::ServiceRegistry::instance().getService<embed::MqttService>();
     if (!mqtt_) {
@@ -38,7 +38,7 @@ void CreartsIotService::start()
              static_cast<int>(topics_.deviceId().size()), topics_.deviceId().data());
 }
 
-void CreartsIotService::stop()
+void IotService::stop()
 {
     mqttConnectedSlot_.disconnect();
     mqttDisconnectedSlot_.disconnect();
@@ -48,14 +48,14 @@ void CreartsIotService::stop()
     ESP_LOGI(TAG, "Stopped");
 }
 
-uint32_t CreartsIotService::allocRequestId()
+uint32_t IotService::allocRequestId()
 {
     const uint32_t id = nextRequestId_++;
     if (nextRequestId_ == 0) nextRequestId_ = 1;
     return id;
 }
 
-int CreartsIotService::publishRaw(const std::string& topic,
+int IotService::publishRaw(const std::string& topic,
                                   std::string_view json,
                                   int qos,
                                   bool retain)
@@ -68,12 +68,12 @@ int CreartsIotService::publishRaw(const std::string& topic,
     return mqtt_->publish(topic.c_str(), json.data(), static_cast<int>(json.size()), qos, retain);
 }
 
-int CreartsIotService::publishTelemetry(std::string_view json, int qos)
+int IotService::publishTelemetry(std::string_view json, int qos)
 {
     return publishRaw(topics_.telemetryPublish(), json, qos);
 }
 
-int CreartsIotService::publishTelemetry(const TelemetryBuilder& builder, int qos)
+int IotService::publishTelemetry(const TelemetryBuilder& builder, int qos)
 {
     if (builder.empty()) {
         ESP_LOGW(TAG, "publishTelemetry: builder empty");
@@ -84,7 +84,7 @@ int CreartsIotService::publishTelemetry(const TelemetryBuilder& builder, int qos
     return publishTelemetry(std::string_view(json), qos);
 }
 
-int CreartsIotService::publishTelemetry(const TelemetryBatch& batch, int qos)
+int IotService::publishTelemetry(const TelemetryBatch& batch, int qos)
 {
     if (batch.empty()) {
         ESP_LOGW(TAG, "publishTelemetry: batch empty");
@@ -95,17 +95,17 @@ int CreartsIotService::publishTelemetry(const TelemetryBatch& batch, int qos)
     return publishTelemetry(std::string_view(json), qos);
 }
 
-int CreartsIotService::publishEvents(std::string_view json, int qos)
+int IotService::publishEvents(std::string_view json, int qos)
 {
     return publishRaw(topics_.eventsPost(), json, qos);
 }
 
-int CreartsIotService::publishAttributes(std::string_view json, int qos)
+int IotService::publishAttributes(std::string_view json, int qos)
 {
     return publishRaw(topics_.attributesReport(), json, qos);
 }
 
-int CreartsIotService::publishAttributes(const AttributeBuilder& builder, int qos)
+int IotService::publishAttributes(const AttributeBuilder& builder, int qos)
 {
     if (builder.empty()) {
         ESP_LOGW(TAG, "publishAttributes: builder empty");
@@ -116,13 +116,13 @@ int CreartsIotService::publishAttributes(const AttributeBuilder& builder, int qo
     return publishAttributes(std::string_view(json), qos);
 }
 
-int CreartsIotService::requestAttributes(const AttributeRequestBuilder& request, int qos)
+int IotService::requestAttributes(const AttributeRequestBuilder& request, int qos)
 {
     uint32_t unused = 0;
     return requestAttributes(request, unused, qos);
 }
 
-int CreartsIotService::requestAttributes(const AttributeRequestBuilder& request,
+int IotService::requestAttributes(const AttributeRequestBuilder& request,
                                          uint32_t& outRequestId,
                                          int qos)
 {
@@ -139,7 +139,7 @@ int CreartsIotService::requestAttributes(const AttributeRequestBuilder& request,
     return publishRaw(topics_.attributesRequest(), json, qos);
 }
 
-int CreartsIotService::respondRpc(uint32_t requestId,
+int IotService::respondRpc(uint32_t requestId,
                                   int code,
                                   std::string_view message,
                                   std::string_view dataJson,
@@ -175,7 +175,7 @@ int CreartsIotService::respondRpc(uint32_t requestId,
     return msgId;
 }
 
-int CreartsIotService::requestNtp(uint32_t& outRequestId, int64_t deviceSendTimeMs, int qos)
+int IotService::requestNtp(uint32_t& outRequestId, int64_t deviceSendTimeMs, int qos)
 {
     outRequestId = allocRequestId();
     cJSON* root = cJSON_CreateObject();
@@ -190,7 +190,7 @@ int CreartsIotService::requestNtp(uint32_t& outRequestId, int64_t deviceSendTime
     return msgId;
 }
 
-int CreartsIotService::publishOtaVersion(std::string_view version,
+int IotService::publishOtaVersion(std::string_view version,
                                          std::string_view module,
                                          int qos)
 {
@@ -208,7 +208,7 @@ int CreartsIotService::publishOtaVersion(std::string_view version,
     return msgId;
 }
 
-int CreartsIotService::publishOtaQuery(std::string_view module,
+int IotService::publishOtaQuery(std::string_view module,
                                        std::string_view version,
                                        int qos)
 {
@@ -228,7 +228,7 @@ int CreartsIotService::publishOtaQuery(std::string_view module,
     return msgId;
 }
 
-int CreartsIotService::publishOtaProgress(std::string_view module,
+int IotService::publishOtaProgress(std::string_view module,
                                           int step,
                                           std::string_view desc,
                                           int qos)
@@ -248,33 +248,33 @@ int CreartsIotService::publishOtaProgress(std::string_view module,
     return msgId;
 }
 
-int CreartsIotService::publishLogs(std::string_view json, int qos)
+int IotService::publishLogs(std::string_view json, int qos)
 {
     return publishRaw(topics_.logsReport(), json, qos);
 }
 
-void CreartsIotService::onMqttConnected(const embed::MqttConnected& /*msg*/, void* ctx)
+void IotService::onMqttConnected(const embed::MqttConnected& /*msg*/, void* ctx)
 {
-    auto* self = static_cast<CreartsIotService*>(ctx);
+    auto* self = static_cast<IotService*>(ctx);
     ESP_LOGI(TAG, "MQTT connected — subscribing downstream");
     self->subscribeAll();
 }
 
-void CreartsIotService::onMqttDisconnected(const embed::MqttDisconnected& /*msg*/, void* ctx)
+void IotService::onMqttDisconnected(const embed::MqttDisconnected& /*msg*/, void* ctx)
 {
-    auto* self = static_cast<CreartsIotService*>(ctx);
+    auto* self = static_cast<IotService*>(ctx);
     ESP_LOGW(TAG, "MQTT disconnected");
     self->subscribed_ = false;
 }
 
-void CreartsIotService::onMqttMessage(const embed::MqttMessageReceived& msg, void* ctx)
+void IotService::onMqttMessage(const embed::MqttMessageReceived& msg, void* ctx)
 {
-    auto* self = static_cast<CreartsIotService*>(ctx);
+    auto* self = static_cast<IotService*>(ctx);
     self->handleMessage(msg.topic.c_str(),
                         std::string_view(msg.payload.c_str(), msg.payload.size()));
 }
 
-void CreartsIotService::subscribeAll()
+void IotService::subscribeAll()
 {
     if (!mqtt_) return;
     mqtt_->subscribe(topics_.downstreamSubscribe().c_str(), 1);
@@ -282,14 +282,14 @@ void CreartsIotService::subscribeAll()
     ESP_LOGI(TAG, "Subscribed: %s", topics_.downstreamSubscribe().c_str());
 }
 
-void CreartsIotService::unsubscribeAll()
+void IotService::unsubscribeAll()
 {
     if (!mqtt_ || !subscribed_) return;
     mqtt_->unsubscribe(topics_.downstreamSubscribe().c_str());
     subscribed_ = false;
 }
 
-void CreartsIotService::handleMessage(std::string_view topic, std::string_view payload)
+void IotService::handleMessage(std::string_view topic, std::string_view payload)
 {
     // Short-style `v1/#` also delivers device uplinks — ignore them.
     if (Topics::isUplink(topic)) {

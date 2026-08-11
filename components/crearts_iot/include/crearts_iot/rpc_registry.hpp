@@ -8,7 +8,7 @@
 
 namespace crearts::iot {
 
-class CreartsIotService;
+class IotService;
 
 enum class RpcParamType : uint8_t {
     Int,
@@ -80,7 +80,7 @@ class RpcRegistry {
 public:
     static constexpr uint8_t kMaxMethods = 24;
 
-    using Handler = void (*)(CreartsIotService& iot,
+    using Handler = void (*)(IotService& iot,
                              uint32_t requestId,
                              const RpcParams& params,
                              void* ctx);
@@ -109,7 +109,7 @@ public:
     }
 
     /// Handle `rpc-list` or a registered method. Returns false → caller should 404.
-    [[nodiscard]] bool dispatch(CreartsIotService& iot, const RpcRequest& req) const;
+    [[nodiscard]] bool dispatch(IotService& iot, const RpcRequest& req) const;
 
     /// JSON array: `[{ "method":"set_led", "params":{ "offset":{ "type":"int", "required":true, "default":0 }, ... } }, ...]`
     [[nodiscard]] std::string listJson() const;

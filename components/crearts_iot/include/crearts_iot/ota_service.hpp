@@ -14,7 +14,7 @@ namespace crearts::iot {
 /// Applies Crearts OTA from `v1/me/o/upd` / `…/down/ota/update`.
 /// Download + flash run on a dedicated FreeRTOS task (not the embed EventLoop).
 /// Requires dual OTA partitions (`partitions_ota.csv`).
-class CreartsOtaService : public embed::Service {
+class OtaService : public embed::Service {
 public:
     const char* serviceName() const override { return "CreartsOtaService"; }
 
@@ -34,7 +34,7 @@ public:
     };
 
 private:
-    CreartsIotService* iot_ = nullptr;
+    IotService* iot_ = nullptr;
     esp_timer_handle_t verifyTimer_ = nullptr;
     std::atomic<bool> inProgress_{false};
     std::atomic<bool> cancel_{false};

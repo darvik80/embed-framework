@@ -19,7 +19,7 @@
 
 namespace crearts::iot {
 
-static const char* TAG = "CreartsOta";
+static const char* TAG = "Ota";
 static constexpr int kHttpBuf = 4096;
 static constexpr uint32_t kTaskStack = 8192;
 static constexpr UBaseType_t kTaskPrio = 5;
@@ -27,8 +27,8 @@ static constexpr UBaseType_t kTaskPrio = 5;
 namespace {
 
 struct TaskArg {
-    CreartsOtaService* self = nullptr;
-    CreartsOtaService::Firmware* fw = nullptr;
+    OtaService* self = nullptr;
+    OtaService::Firmware* fw = nullptr;
 };
 
 const char* jsonString(cJSON* obj, const char* key)
@@ -48,9 +48,9 @@ bool jsonBool(cJSON* obj, const char* key, bool fallback = false)
 
 } // namespace
 
-void CreartsOtaService::start()
+void OtaService::start()
 {
-    iot_ = embed::ServiceRegistry::instance().getService<CreartsIotService>();
+    iot_ = embed::ServiceRegistry::instance().getService<IotService>();
     if (!iot_) {
         ESP_LOGE(TAG, "CreartsIotService not found");
         return;
@@ -82,7 +82,7 @@ void CreartsOtaService::start()
     ESP_LOGI(TAG, "Listening for OTA update/cancel");
 }
 
-void CreartsOtaService::stop()
+void OtaService::stop()
 {
     cancel_.store(true);
     if (verifyTimer_) {
@@ -96,7 +96,7 @@ void CreartsOtaService::stop()
     iot_ = nullptr;
 }
 
-void CreartsOtaService::confirmPendingImage()
+void OtaService::confirmPendingImage()
 {
     const esp_partition_t* running = esp_ota_get_running_partition();
     if (!running) return;
@@ -114,14 +114,14 @@ void CreartsOtaService::confirmPendingImage()
     }
 }
 
-void CreartsOtaService::onMqttConnected(const embed::MqttConnected&, void* ctx)
+void OtaService::onMqttConnected(const embed::MqttConnected&, void* ctx)
 {
-    static_cast<CreartsOtaService*>(ctx)->confirmPendingImage();
+    static_cast<OtaService*>(ctx)->confirmPendingImage();
 }
 
-void CreartsOtaService::verifyTimeout(void* arg)
+void OtaService::verifyTimeout(void* arg)
 {
-    auto* self = static_cast<CreartsOtaService*>(arg);
+    auto* self = static_cast<OtaService*>(arg);
     ESP_LOGE(TAG, "MQTT not up in 90s after OTA — rolling back");
     if (self && self->verifyTimer_) {
         esp_timer_delete(self->verifyTimer_);
@@ -135,19 +135,19 @@ void CreartsOtaService::verifyTimeout(void* arg)
     }
 }
 
-void CreartsOtaService::onUpdate(const OtaUpdate& msg, void* ctx)
+void OtaService::onUpdate(const OtaUpdate& msg, void* ctx)
 {
-    auto* self = static_cast<CreartsOtaService*>(ctx);
+    auto* self = static_cast<OtaService*>(ctx);
     self->handleUpdate(std::string_view(msg.payload.c_str(), msg.payload.size()));
 }
 
-void CreartsOtaService::onCancel(const OtaCancel& msg, void* ctx)
+void OtaService::onCancel(const OtaCancel& msg, void* ctx)
 {
-    auto* self = static_cast<CreartsOtaService*>(ctx);
+    auto* self = static_cast<OtaService*>(ctx);
     self->handleCancel(std::string_view(msg.payload.c_str(), msg.payload.size()));
 }
 
-bool CreartsOtaService::parseFirmware(std::string_view json, Firmware& out)
+bool OtaService::parseFirmware(std::string_view json, Firmware& out)
 {
     if (json.empty()) return false;
     cJSON* root = cJSON_ParseWithLength(json.data(), json.size());
@@ -173,7 +173,7 @@ bool CreartsOtaService::parseFirmware(std::string_view json, Firmware& out)
     return !out.version.empty();
 }
 
-void CreartsOtaService::handleUpdate(std::string_view payload)
+void OtaService::handleUpdate(std::string_view payload)
 {
     ESP_LOGI(TAG, "OTA update payload (%u bytes): %.*s",
              static_cast<unsigned>(payload.size()),
@@ -203,14 +203,14 @@ void CreartsOtaService::handleUpdate(std::string_view payload)
     schedule(std::move(fw));
 }
 
-void CreartsOtaService::handleCancel(std::string_view payload)
+void OtaService::handleCancel(std::string_view payload)
 {
     ESP_LOGW(TAG, "OTA cancel: %.*s", static_cast<int>(payload.size()), payload.data());
     if (!inProgress_.load()) return;
     cancel_.store(true);
 }
 
-void CreartsOtaService::schedule(Firmware fw)
+void OtaService::schedule(Firmware fw)
 {
     const esp_partition_t* part = esp_ota_get_next_update_partition(nullptr);
     if (!part) {
@@ -237,10 +237,10 @@ void CreartsOtaService::schedule(Firmware fw)
     }
 }
 
-void CreartsOtaService::otaTask(void* raw)
+void OtaService::otaTask(void* raw)
 {
     auto* arg = static_cast<TaskArg*>(raw);
-    CreartsOtaService* self = arg->self;
+    OtaService* self = arg->self;
     Firmware* fw = arg->fw;
     delete arg;
 
@@ -250,7 +250,7 @@ void CreartsOtaService::otaTask(void* raw)
     vTaskDelete(nullptr);
 }
 
-void CreartsOtaService::report(const char* module, int step, const char* desc)
+void OtaService::report(const char* module, int step, const char* desc)
 {
     ESP_LOGI(TAG, "progress module=%s step=%d desc=%s", module ? module : "?", step, desc ? desc : "");
     if (iot_) {
@@ -258,7 +258,7 @@ void CreartsOtaService::report(const char* module, int step, const char* desc)
     }
 }
 
-bool CreartsOtaService::hexEqual(const uint8_t* digest, size_t digestLen, std::string_view hex)
+bool OtaService::hexEqual(const uint8_t* digest, size_t digestLen, std::string_view hex)
 {
     if (!digest || hex.size() != digestLen * 2) return false;
     for (size_t i = 0; i < digestLen; ++i) {
@@ -276,7 +276,7 @@ bool CreartsOtaService::hexEqual(const uint8_t* digest, size_t digestLen, std::s
     return true;
 }
 
-void CreartsOtaService::perform(const Firmware& fw)
+void OtaService::perform(const Firmware& fw)
 {
     ESP_LOGI(TAG, "Starting OTA %s module=%s url=%s size=%d",
              fw.version.c_str(), fw.module.c_str(), fw.url.c_str(), fw.size);

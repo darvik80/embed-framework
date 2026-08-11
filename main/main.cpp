@@ -155,7 +155,7 @@ public:
 
     void start() override {
         auto* iot = embed::ServiceRegistry::instance()
-                        .getService<crearts::iot::CreartsIotService>();
+                        .getService<crearts::iot::IotService>();
         if (!iot) {
             ESP_LOGE("CreartsRpc", "CreartsIotService not found");
             return;
@@ -207,7 +207,7 @@ public:
     void stop() override {}
 
 private:
-    static void replyJson(crearts::iot::CreartsIotService& iot,
+    static void replyJson(crearts::iot::IotService& iot,
                           uint32_t id,
                           int code,
                           const char* message,
@@ -238,7 +238,7 @@ private:
         return v;
     }
 
-    static void onEcho(crearts::iot::CreartsIotService& iot,
+    static void onEcho(crearts::iot::IotService& iot,
                        uint32_t id,
                        const crearts::iot::RpcParams& p,
                        void*)
@@ -254,7 +254,7 @@ private:
         replyJson(iot, id, 0, "ok", data);
     }
 
-    static void onLedAttach(crearts::iot::CreartsIotService& iot,
+    static void onLedAttach(crearts::iot::IotService& iot,
                             uint32_t id,
                             const crearts::iot::RpcParams& p,
                             void*)
@@ -286,7 +286,7 @@ private:
         replyJson(iot, id, 0, "ok", data);
     }
 
-    static void onLedDetach(crearts::iot::CreartsIotService& iot,
+    static void onLedDetach(crearts::iot::IotService& iot,
                             uint32_t id,
                             const crearts::iot::RpcParams& p,
                             void*)
@@ -310,7 +310,7 @@ private:
         replyJson(iot, id, 0, "ok", data);
     }
 
-    static void onLedList(crearts::iot::CreartsIotService& iot,
+    static void onLedList(crearts::iot::IotService& iot,
                           uint32_t id,
                           const crearts::iot::RpcParams&,
                           void*)
@@ -334,7 +334,7 @@ private:
         replyJson(iot, id, 0, "ok", data);
     }
 
-    static void onSetLed(crearts::iot::CreartsIotService& iot,
+    static void onSetLed(crearts::iot::IotService& iot,
                          uint32_t id,
                          const crearts::iot::RpcParams& p,
                          void*)
@@ -391,7 +391,7 @@ private:
         replyJson(iot, id, 0, "ok", data);
     }
 
-    static void onReboot(crearts::iot::CreartsIotService& iot,
+    static void onReboot(crearts::iot::IotService& iot,
                          uint32_t id,
                          const crearts::iot::RpcParams& p,
                          void*)
@@ -406,7 +406,7 @@ private:
                     5, nullptr);
     }
 
-    static void onFactoryReset(crearts::iot::CreartsIotService& iot,
+    static void onFactoryReset(crearts::iot::IotService& iot,
                                uint32_t id,
                                const crearts::iot::RpcParams& p,
                                void*)
@@ -425,7 +425,7 @@ private:
         embed::scheduleReboot(800);
     }
 
-    static void onConfigPortal(crearts::iot::CreartsIotService& iot,
+    static void onConfigPortal(crearts::iot::IotService& iot,
                                uint32_t id,
                                const crearts::iot::RpcParams&,
                                void*)
@@ -439,7 +439,7 @@ private:
         embed::scheduleReboot(800);
     }
 
-    static void onImportCredentials(crearts::iot::CreartsIotService& iot,
+    static void onImportCredentials(crearts::iot::IotService& iot,
                                     uint32_t id,
                                     const crearts::iot::RpcParams& p,
                                     void*)
@@ -462,7 +462,7 @@ private:
         embed::scheduleReboot(800);
     }
 
-    static void onExportCredentials(crearts::iot::CreartsIotService& iot,
+    static void onExportCredentials(crearts::iot::IotService& iot,
                                     uint32_t id,
                                     const crearts::iot::RpcParams& p,
                                     void*)
@@ -477,7 +477,7 @@ private:
         iot.respondRpc(id, 0, "ok", buf);
     }
 
-    static void onOtaRollback(crearts::iot::CreartsIotService& iot,
+    static void onOtaRollback(crearts::iot::IotService& iot,
                               uint32_t id,
                               const crearts::iot::RpcParams& p,
                               void*)
@@ -648,10 +648,10 @@ extern "C" void app_main() {
                      ? "short"
                      : "full");
         registry.createService<embed::MqttService>(*creartsCreds);
-        registry.createService<crearts::iot::CreartsIotService>(*creartsCreds);
+        registry.createService<crearts::iot::IotService>(*creartsCreds);
         registry.createService<crearts::iot::MetricsTelemetryBridge>();
-        registry.createService<crearts::iot::CreartsOtaService>();
-        registry.createService<crearts::iot::CreartsDeviceInfo>();
+        registry.createService<crearts::iot::OtaService>();
+        registry.createService<crearts::iot::DeviceInfo>();
         registry.createService<CreartsRpcDemo>();
     } else if (!portal) {
         ESP_LOGW(TAG,

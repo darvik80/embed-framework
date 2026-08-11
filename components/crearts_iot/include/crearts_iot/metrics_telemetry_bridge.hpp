@@ -15,7 +15,7 @@ public:
     void stop() override;
 
 private:
-    CreartsIotService* iot_ = nullptr;
+    IotService* iot_ = nullptr;
 
     embed::Slot<embed::MetricsCollected> metricsSlot_{onMetrics, this};
     static void onMetrics(const embed::MetricsCollected& msg, void* ctx);

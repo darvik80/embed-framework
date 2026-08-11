@@ -143,7 +143,7 @@ const RpcRegistry::Entry* RpcRegistry::find(const char* method) const
     return nullptr;
 }
 
-bool RpcRegistry::dispatch(CreartsIotService& iot, const RpcRequest& req) const
+bool RpcRegistry::dispatch(IotService& iot, const RpcRequest& req) const
 {
     if (isRpcList(req.method.c_str())) {
         const std::string json = listJson();

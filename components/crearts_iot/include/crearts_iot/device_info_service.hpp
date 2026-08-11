@@ -8,15 +8,15 @@ namespace crearts::iot {
 
 /// On each MQTT connect: publish **reported** static attrs (dashboard reported
 /// form), request **desired**, and log desired pushes from `attributes/update`.
-class CreartsDeviceInfo : public embed::Service {
+class DeviceInfo : public embed::Service {
 public:
-    const char* serviceName() const override { return "CreartsDeviceInfo"; }
+    const char* serviceName() const override { return "DeviceInfo"; }
 
     void start() override;
     void stop() override;
 
 private:
-    CreartsIotService* iot_ = nullptr;
+    IotService* iot_ = nullptr;
     embed::MqttService* mqtt_ = nullptr;
 
     embed::Slot<embed::MqttConnected> connectedSlot_{onConnected, this};
@@ -27,7 +27,7 @@ private:
     static void onAttrUpdate(const AttributeUpdate& upd, void* ctx);
     static void onAttrResponse(const AttributeResponse& res, void* ctx);
 
-    static void publishReported(CreartsIotService* iot);
+    static void publishReported(IotService* iot);
 };
 
 } // namespace crearts::iot

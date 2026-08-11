@@ -5,12 +5,12 @@
 
 namespace crearts::iot {
 
-static const char* TAG = "CreartsMetrics";
+static const char* TAG = "Metrics";
 
 void MetricsTelemetryBridge::start()
 {
     auto& reg = embed::ServiceRegistry::instance();
-    iot_ = reg.getService<CreartsIotService>();
+    iot_ = reg.getService<IotService>();
     auto* metrics = reg.getService<embed::MetricsService>();
 
     if (!iot_) {

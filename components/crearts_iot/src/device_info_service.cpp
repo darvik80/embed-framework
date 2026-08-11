@@ -12,7 +12,7 @@
 
 namespace crearts::iot {
 
-static const char* TAG = "CreartsInfo";
+static const char* TAG = "Info";
 
 /// Product-facing reported attrs (esp_app_desc fills version / project name).
 static constexpr char kAppModel[] = "ESP32-S3";
@@ -43,10 +43,10 @@ static const char* chipModelName(esp_chip_model_t model)
     }
 }
 
-void CreartsDeviceInfo::start()
+void DeviceInfo::start()
 {
     auto& reg = embed::ServiceRegistry::instance();
-    iot_ = reg.getService<CreartsIotService>();
+    iot_ = reg.getService<IotService>();
     mqtt_ = reg.getService<embed::MqttService>();
     if (!iot_ || !mqtt_) {
         ESP_LOGE(TAG, "CreartsIotService/MqttService missing");
@@ -58,7 +58,7 @@ void CreartsDeviceInfo::start()
     ESP_LOGI(TAG, "Will report/request attributes on MQTT connect");
 }
 
-void CreartsDeviceInfo::stop()
+void DeviceInfo::stop()
 {
     connectedSlot_.disconnect();
     attrUpdateSlot_.disconnect();
@@ -67,7 +67,7 @@ void CreartsDeviceInfo::stop()
     mqtt_ = nullptr;
 }
 
-void CreartsDeviceInfo::publishReported(CreartsIotService* iot)
+void DeviceInfo::publishReported(IotService* iot)
 {
     const esp_app_desc_t* app = esp_app_get_description();
     const char* version = (app && app->version[0]) ? app->version : "0.0.0";
@@ -103,9 +103,9 @@ void CreartsDeviceInfo::publishReported(CreartsIotService* iot)
     iot->publishOtaVersion(version, "main", 1);
 }
 
-void CreartsDeviceInfo::onConnected(const embed::MqttConnected&, void* ctx)
+void DeviceInfo::onConnected(const embed::MqttConnected&, void* ctx)
 {
-    auto* self = static_cast<CreartsDeviceInfo*>(ctx);
+    auto* self = static_cast<DeviceInfo*>(ctx);
     if (!self->iot_) {
         return;
     }
@@ -120,14 +120,14 @@ void CreartsDeviceInfo::onConnected(const embed::MqttConnected&, void* ctx)
              msgId, static_cast<unsigned long>(reqId));
 }
 
-void CreartsDeviceInfo::onAttrUpdate(const AttributeUpdate& upd, void* /*ctx*/)
+void DeviceInfo::onAttrUpdate(const AttributeUpdate& upd, void* /*ctx*/)
 {
     auto parsed = parseAttributeUpdate(
         std::string_view(upd.payload.c_str(), upd.payload.size()));
     ESP_LOGI(TAG, "desired update: %s", parsed.desiredJson.c_str());
 }
 
-void CreartsDeviceInfo::onAttrResponse(const AttributeResponse& res, void* /*ctx*/)
+void DeviceInfo::onAttrResponse(const AttributeResponse& res, void* /*ctx*/)
 {
     auto parsed = parseAttributeResponse(
         std::string_view(res.payload.c_str(), res.payload.size()));
