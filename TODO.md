@@ -6,6 +6,7 @@ Prioritized from architecture review (2026-07-29). Skills: `.cursor/skills/embed
 
 - [ ] **Camera frame ownership** — _(broader redesign deferred)_
 - [x] **OssUploadService reclaim** — `releaseCameraFrame()` / `esp_camera_fb_return` when `fb != nullptr`.
+- [x] **OssUploadService → alicloud_oss** — moved out of `embed_extra`; include `alicloud_oss/oss_upload_service.hpp`.
 - [x] **OTA partitions** — `partitions_ota.csv` + early reject on factory-only; see `docs/ota.md`.
 - [x] **OTA off EventLoop** — `scheduleOtaUpdate()` → FreeRTOS task `ota_update`.
 - [x] **OTA crash-loop rollback** — pending-verify + `checkCrashLoopRollback()` before TLS/services.

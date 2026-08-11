@@ -1,4 +1,4 @@
 version: "1.0.0"
-description: "Alibaba Cloud OSS client + embed-framework Service wrapper"
+description: "Alibaba Cloud OSS client, OssService, and camera→OSS OssUploadService"
 dependencies:
   idf: ">=5.5"

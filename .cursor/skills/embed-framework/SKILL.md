@@ -17,9 +17,9 @@ ESP32-S3 · ESP-IDF ≥5.5 · C++20 framework (`-fno-exceptions`, RTTI in `embed
 main/                  # app wiring only (create services, credentials from Kconfig)
 components/embed/      # framework primitives — no product logic
 components/embed_core/ # WiFi, MQTT, Metrics
-components/embed_extra/# Camera, MJPEG, OSS upload, WS2812 LED strip
+components/embed_extra/# Camera, MJPEG, WS2812 LED strip
 components/crearts_iot/# Crearts IoT Platform device SDK (preferred cloud path)
-components/alicloud_*/ # cloud providers (C + thin C++ wrappers OK)
+components/alicloud_*/ # cloud providers (C + thin C++ wrappers OK; OSS + OssUploadService)
 components/<vendor>/   # other providers implementing embed::MqttCredentials etc.
 ```
 

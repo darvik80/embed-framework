@@ -10,6 +10,7 @@ MQTT device client for the Crearts IoT Platform (`docs/iot-platform-mqtt-spec.md
 - Telemetry / attributes builders (`reported` flat report; `desired` request/update)
 - `CreartsIotService` — subscribe downstream; telemetry, events, attributes, RPC, NTP, OTA hooks, logs
 - `MetricsTelemetryBridge` — `MetricsService` → telemetry
+- `CreartsDeviceInfo` — reported attrs + desired request on MQTT connect
 - `CreartsOtaService` — HTTPS OTA from `v1/me/o/upd` (background task, sha256, progress; MQTT confirm / 90 s / crash-loop rollback)
 
 ## Configure (preferred)
@@ -70,12 +71,13 @@ registry.createService<embed::MqttService>(*creds);
 registry.createService<embed::MetricsService>();
 registry.createService<crearts::iot::CreartsIotService>(*creds);
 registry.createService<crearts::iot::MetricsTelemetryBridge>();
+registry.createService<crearts::iot::CreartsDeviceInfo>();
 registry.createService<crearts::iot::CreartsOtaService>();
 ```
 
 Lab-only explicit user/pass: `CreartsCredentials::createBasic(...)`.
 
-Demo `main/` also reports static **reported** attributes on connect and requests **desired** (see `CreartsDeviceInfo`).
+`CreartsDeviceInfo` reports static **reported** attributes on connect and requests **desired**.
 
 ## Spec notes
 

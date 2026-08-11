@@ -20,4 +20,12 @@ menu "Alibaba Cloud OSS"
         string "Bucket name"
         default ""
 
+    config EMBED_OSS_UPLOAD_QUEUE_DEPTH
+        int "OssUploadService frame queue depth"
+        range 1 8
+        default 2
+        help
+            Frames buffered between CameraService and the OSS upload task.
+            Shallow = lower latency / more drops under load.
+
 endmenu

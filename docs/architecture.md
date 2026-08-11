@@ -7,8 +7,9 @@
 │ main (product / demo wiring, Kconfig)   │
 ├─────────────────────────────────────────┤
 │ crearts_iot / alicloud_* / thingsboard  │
+│   (alicloud_oss: OssService + upload)   │
 ├─────────────────────────────────────────┤
-│ embed_extra (camera, mjpeg, oss, led strip) │
+│ embed_extra (camera, mjpeg, led strip)  │
 │ embed_core  (wifi, mqtt, metrics)       │
 ├─────────────────────────────────────────┤
 │ embed (registry, event loop, signal)    │

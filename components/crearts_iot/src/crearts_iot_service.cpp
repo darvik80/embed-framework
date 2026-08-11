@@ -302,7 +302,7 @@ void CreartsIotService::handleMessage(std::string_view topic, std::string_view p
             ESP_LOGW(TAG, "RPC request: invalid JSON");
             return;
         }
-        ESP_LOGI(TAG, "RPC req id=%lu method=%s",
+        ESP_LOGD(TAG, "RPC req id=%lu method=%s",
                  static_cast<unsigned long>(req.requestId), req.method.c_str());
         onRpcRequest.emit(req);
         if (rpc_ && !rpc_->dispatch(*this, req)) {

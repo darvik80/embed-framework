@@ -16,9 +16,6 @@
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_task_wdt.h"
-#include "esp_app_desc.h"
-#include "esp_chip_info.h"
-#include "esp_mac.h"
 #include "hal/gpio_types.h"
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
@@ -37,12 +34,6 @@ namespace {
 
 constexpr char TAG[] = "Main";
 
-/// Static reported attributes (app identity). version / app-name prefer
-/// esp_app_desc; these label the product face of the firmware.
-constexpr char kAppModel[] = "ESP32-S3";
-constexpr char kAppName[] = "embed-framework";
-constexpr char kAppVendor[] = "crearts";
-constexpr char kAppProtocol[] = "iot/v1";
 } // namespace
 
 // ── Messages ────────────────────────────────────────────────────────────
@@ -153,138 +144,6 @@ private:
     int button_gpio_;
     uint32_t press_count_;
     esp_timer_handle_t timer_ = nullptr;
-};
-
-// ── CreartsDeviceInfo ───────────────────────────────────────────────────
-
-/// On each MQTT connect: publish **reported** static attrs (feeds dashboard
-/// reported form), request **desired**, and apply desired pushes from the
-/// device-page editor (`attributes/update`).
-class CreartsDeviceInfo : public embed::Service {
-public:
-    const char* serviceName() const override { return "CreartsDeviceInfo"; }
-
-    void start() override {
-        auto& reg = embed::ServiceRegistry::instance();
-        iot_ = reg.getService<crearts::iot::CreartsIotService>();
-        mqtt_ = reg.getService<embed::MqttService>();
-        if (!iot_ || !mqtt_) {
-            ESP_LOGE("CreartsInfo", "CreartsIotService/MqttService missing");
-            return;
-        }
-        connectedSlot_.connect(mqtt_->onConnected);
-        attrUpdateSlot_.connect(iot_->onAttributeUpdate);
-        attrResponseSlot_.connect(iot_->onAttributeResponse);
-        ESP_LOGI("CreartsInfo", "Will report/request attributes on MQTT connect");
-    }
-
-    void stop() override {
-        connectedSlot_.disconnect();
-        attrUpdateSlot_.disconnect();
-        attrResponseSlot_.disconnect();
-        iot_ = nullptr;
-        mqtt_ = nullptr;
-    }
-
-private:
-    crearts::iot::CreartsIotService* iot_ = nullptr;
-    embed::MqttService* mqtt_ = nullptr;
-    embed::Slot<embed::MqttConnected> connectedSlot_{onConnected, this};
-    embed::Slot<crearts::iot::AttributeUpdate> attrUpdateSlot_{onAttrUpdate, this};
-    embed::Slot<crearts::iot::AttributeResponse> attrResponseSlot_{onAttrResponse, this};
-
-    static const char* chipModelName(esp_chip_model_t model) {
-        switch (model) {
-        case CHIP_ESP32: return "ESP32";
-        case CHIP_ESP32S2: return "ESP32-S2";
-        case CHIP_ESP32S3: return "ESP32-S3";
-        case CHIP_ESP32C3: return "ESP32-C3";
-#ifdef CHIP_ESP32C2
-        case CHIP_ESP32C2: return "ESP32-C2";
-#endif
-#ifdef CHIP_ESP32C6
-        case CHIP_ESP32C6: return "ESP32-C6";
-#endif
-#ifdef CHIP_ESP32H2
-        case CHIP_ESP32H2: return "ESP32-H2";
-#endif
-#ifdef CHIP_ESP32P4
-        case CHIP_ESP32P4: return "ESP32-P4";
-#endif
-        default: return CONFIG_IDF_TARGET;
-        }
-    }
-
-    static void publishReported(crearts::iot::CreartsIotService* iot) {
-        const esp_app_desc_t* app = esp_app_get_description();
-        const char* version = (app && app->version[0]) ? app->version : "0.0.0";
-        const char* appName = (app && app->project_name[0]) ? app->project_name : kAppName;
-        const char* idfVer = (app && app->idf_ver[0]) ? app->idf_ver : "";
-
-        esp_chip_info_t chip{};
-        esp_chip_info(&chip);
-
-        uint8_t mac[6]{};
-        esp_read_mac(mac, ESP_MAC_WIFI_STA);
-        char macStr[18];
-        std::snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
-                      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-
-        // Flat object = reported scope (dashboard Properties → reported form).
-        crearts::iot::AttributeBuilder attrs;
-        attrs.add("version", version)
-            .add("firmwareVersion", version)
-            .add("model", kAppModel)
-            .add("appName", appName)
-            .add("vendor", kAppVendor)
-            .add("protocol", kAppProtocol)
-            .add("productId", iot->credentials().productId())
-            .add("deviceId", iot->credentials().deviceId())
-            .add("chip", chipModelName(chip.model))
-            .add("chipCores", static_cast<int>(chip.cores))
-            .add("idfVersion", idfVer)
-            .add("mac", macStr);
-
-        const int msgId = iot->publishAttributes(attrs, 1);
-        ESP_LOGI("CreartsInfo",
-                 "reported attrs msg_id=%d version=%s model=%s app=%s",
-                 msgId, version, kAppModel, appName);
-        iot->publishOtaVersion(version, "main", 1);
-    }
-
-    static void onConnected(const embed::MqttConnected&, void* ctx) {
-        auto* self = static_cast<CreartsDeviceInfo*>(ctx);
-        if (!self->iot_) return;
-
-        publishReported(self->iot_);
-
-        // Pull desired from platform (device-page desired form).
-        crearts::iot::AttributeRequestBuilder req;
-        req.desiredAll();
-        uint32_t reqId = 0;
-        const int msgId = self->iot_->requestAttributes(req, reqId, 1);
-        ESP_LOGI("CreartsInfo", "desired request msg_id=%d id=%lu",
-                 msgId, static_cast<unsigned long>(reqId));
-    }
-
-    static void onAttrUpdate(const crearts::iot::AttributeUpdate& upd, void* ctx) {
-        auto* self = static_cast<CreartsDeviceInfo*>(ctx);
-        // Desired push from dashboard Properties → desired form.
-        auto parsed = crearts::iot::parseAttributeUpdate(
-            std::string_view(upd.payload.c_str(), upd.payload.size()));
-        ESP_LOGI("CreartsInfo", "desired update: %s", parsed.desiredJson.c_str());
-        (void)self;
-        // App-specific apply hooks go here (e.g. enable flag, intervals).
-    }
-
-    static void onAttrResponse(const crearts::iot::AttributeResponse& res, void* /*ctx*/) {
-        auto parsed = crearts::iot::parseAttributeResponse(
-            std::string_view(res.payload.c_str(), res.payload.size()));
-        ESP_LOGI("CreartsInfo", "attr response id=%lu reported=%s desired=%s",
-                 static_cast<unsigned long>(res.requestId),
-                 parsed.reportedJson.c_str(),
-                 parsed.desiredJson.c_str());
-    }
 };
 
 // ── CreartsRpcDemo ──────────────────────────────────────────────────────
@@ -511,7 +370,7 @@ private:
             r = g = b = 0;
         }
 
-        ESP_LOGI("CreartsRpc", "set_led gpio=%d offset=%d length=%d rgb=%d,%d,%d",
+        ESP_LOGD("CreartsRpc", "set_led gpio=%d offset=%d length=%d rgb=%d,%d,%d",
                  gpio, offset, length, r, g, b);
 
         if (!strip->setRange(gpio, static_cast<uint16_t>(offset), static_cast<uint16_t>(length),
@@ -678,7 +537,7 @@ private:
     }
 
     static void onMetricsCollected(const embed::MetricsCollected& msg, void* /*ctx*/) {
-        ESP_LOGI("Monitor",
+        ESP_LOGD("Monitor",
                  "METRICS: cpu=%u%% heap=%u dram=%u/%u psram=%u uptime=%us wifi=%s",
                  msg.cpuUsagePercent, msg.freeHeap, msg.freeDram, msg.totalDram,
                  msg.freePsram, msg.uptimeSeconds,
@@ -694,7 +553,7 @@ private:
     }
 
     static void onMqttMessage(const embed::MqttMessageReceived& msg, void* /*ctx*/) {
-        ESP_LOGI("Monitor", "MQTT MSG: topic=%s len=%u", msg.topic.c_str(), msg.payload.size());
+        ESP_LOGD("Monitor", "MQTT MSG: topic=%s len=%u", msg.topic.c_str(), msg.payload.size());
     }
 
     embed::Slot<embed::WifiConnected> wifi_connected_slot_{onWifiConnected, this};
@@ -792,7 +651,7 @@ extern "C" void app_main() {
         registry.createService<crearts::iot::CreartsIotService>(*creartsCreds);
         registry.createService<crearts::iot::MetricsTelemetryBridge>();
         registry.createService<crearts::iot::CreartsOtaService>();
-        registry.createService<CreartsDeviceInfo>();
+        registry.createService<crearts::iot::CreartsDeviceInfo>();
         registry.createService<CreartsRpcDemo>();
     } else if (!portal) {
         ESP_LOGW(TAG,
@@ -820,11 +679,6 @@ extern "C" void app_main() {
                  static_cast<int>(creartsCreds->deviceId().size()),
                  creartsCreds->deviceId().data());
     }
-
-#ifdef CONFIG_EMBED_LED_STRIP
-    leds->attach(17, 8);
-    leds->attach(16, 8);
-#endif
 
     while (true) {
         vTaskDelay(pdMS_TO_TICKS(10'000));

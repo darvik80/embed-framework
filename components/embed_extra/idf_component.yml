@@ -1,5 +1,5 @@
 version: "1.0.0"
-description: "ESP32 camera, MJPEG, OSS upload, and WS2812 LED strip for embed-framework"
+description: "ESP32 camera, MJPEG, and WS2812 LED strip for embed-framework"
 dependencies:
   idf: ">=5.5"
   espressif/esp32-camera: "^2.1.6"

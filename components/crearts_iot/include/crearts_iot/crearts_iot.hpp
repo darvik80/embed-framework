@@ -10,4 +10,5 @@
 #include "crearts_iot/rpc_registry.hpp"
 #include "crearts_iot/crearts_iot_service.hpp"
 #include "crearts_iot/metrics_telemetry_bridge.hpp"
+#include "crearts_iot/device_info_service.hpp"
 #include "crearts_iot/ota_service.hpp"

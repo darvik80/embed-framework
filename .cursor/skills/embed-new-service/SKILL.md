@@ -8,7 +8,7 @@ description: >-
 
 # Add a new Service
 
-Follow [embed-framework](../embed-framework/SKILL.md). Prefer extending an existing component (`embed_core` / `embed_extra` / cloud) over a new component unless the feature is a separate dependency domain.
+Follow [embed-framework](../embed-framework/SKILL.md). Prefer extending an existing component (`embed_core` / `embed_extra` / `alicloud_oss` / cloud) over a new component unless the feature is a separate dependency domain.
 
 ## Checklist
 

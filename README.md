@@ -20,7 +20,7 @@ idf.py build flash monitor
 | Embed Framework — Crearts IoT | `CONFIG_EMBED_CREARTS_IOT_*` (product, device, host, **token**, TLS, topics) |
 | Embed Framework — MQTT / Metrics | `CONFIG_EMBED_MQTT_*`, `CONFIG_EMBED_METRICS_*` |
 
-Demo `main/` wires **Crearts** by default: WiFi → MQTT → `CreartsIotService` (+ metrics bridge, device info attributes, RPC demo).
+Demo `main/` wires **Crearts** by default: WiFi → MQTT → `CreartsIotService` (+ metrics bridge, `CreartsDeviceInfo` attributes, RPC demo).
 
 ## Architecture
 
@@ -28,9 +28,9 @@ Demo `main/` wires **Crearts** by default: WiFi → MQTT → `CreartsIotService`
 main/                      app wiring (services, Kconfig → NVS seed → credentials)
 components/embed/          Service, Registry, EventLoop, Signal/Slot, StateMachine
 components/embed_core/     WifiService, MqttService, MetricsService, NvsStore
-components/embed_extra/    Camera, MJPEG, OSS upload, WS2812 LED strip
+components/embed_extra/    Camera, MJPEG, WS2812 LED strip
 components/crearts_iot/    Crearts IoT Platform device SDK (protocol v1)
-components/alicloud_*      Alibaba IoT / OSS
+components/alicloud_*      Alibaba IoT / OSS (+ camera frame upload)
 components/thingsboard/    ThingsBoard MQTT device API
 deploy/                    RabbitMQ + Node-RED lab stack
 ```
@@ -107,10 +107,10 @@ Point the device at the **Go platform** MQTT broker (**LAN IP**, not `localhost`
 |-----------|------|
 | [embed](components/embed/README.md) | Core framework |
 | [embed_core](components/embed_core/README.md) | WiFi, MQTT, metrics |
-| embed_extra | Camera / MJPEG / OSS upload / WS2812 LED strip |
+| embed_extra | Camera / MJPEG / WS2812 LED strip |
 | [crearts_iot](components/crearts_iot/README.md) | Crearts IoT Platform device SDK |
 | alicloud_iot | Alink modules (things, OTA, NTP, …) |
-| alicloud_oss | OSS client + `OssService` |
+| alicloud_oss | OSS client + `OssService` + `OssUploadService` |
 | [thingsboard](components/thingsboard/README.md) | ThingsBoard MQTT device API |
 
 ## MQTT reconnect

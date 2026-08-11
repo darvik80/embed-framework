@@ -2,7 +2,6 @@ idf_component_register(
     SRCS
         "src/camera_service.cpp"
         "src/mjpeg_service.cpp"
-        "src/oss_upload_service.cpp"
         "src/led_strip_service.cpp"
     INCLUDE_DIRS
         "include"
@@ -14,5 +13,4 @@ idf_component_register(
         freertos
         log
         heap
-        alicloud_oss
 )

@@ -9,6 +9,7 @@ idf_component_register(
         "src/rpc_registry.cpp"
         "src/crearts_iot_service.cpp"
         "src/metrics_telemetry_bridge.cpp"
+        "src/device_info_service.cpp"
         "src/ota_service.cpp"
     INCLUDE_DIRS
         "include"
@@ -20,6 +21,7 @@ idf_component_register(
         app_update
         esp_http_client
         esp_app_format
+        esp_hw_support
         mbedtls
         esp-tls
 )

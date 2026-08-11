@@ -6,14 +6,19 @@ idf_component_register(
         "src/alicloud_oss_default.c"
         "src/alicloud_oss_response_parser.c"
         "src/oss_service.cpp"
+        "src/oss_upload_service.cpp"
     INCLUDE_DIRS
         "include"
         "src"
     REQUIRES
         embed
+        embed_extra
         alicloud_common
         esp-tls
         mbedtls
+        freertos
+        log
+        heap
 )
 set_source_files_properties(
     src/alicloud_oss.c
@@ -25,5 +30,6 @@ set_source_files_properties(
 set_source_files_properties(
     src/alicloud_oss_auth.cpp
     src/oss_service.cpp
+    src/oss_upload_service.cpp
     PROPERTIES COMPILE_OPTIONS "-std=gnu++23"
 )

@@ -252,7 +252,7 @@ void ThingsBoardService::handleMessage(std::string_view topic, std::string_view 
             req.params.assign(payload.data(), payload.size());
         }
 
-        ESP_LOGI(TAG, "RPC req id=%lu method=%s",
+        ESP_LOGD(TAG, "RPC req id=%lu method=%s",
                  static_cast<unsigned long>(req.requestId), req.method.c_str());
         onRpcRequest.emit(req);
         return;
