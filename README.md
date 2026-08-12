@@ -2,6 +2,8 @@
 
 C++20 service framework for **ESP-IDF ≥ 5.5** (ESP32-S3): fixed-size `ServiceRegistry`, Signal/Slot on a dedicated `esp_event` loop, CRTP state machines, and cloud device SDKs (Crearts IoT, Alibaba Cloud, ThingsBoard).
 
+**[Developer Manual](docs/embed-framework-manual.md)** — comprehensive guide covering all components, API reference, code examples, and iot-platform-go integration.
+
 ## Quick start
 
 ```bash
@@ -90,7 +92,7 @@ static auto creds = crearts::iot::loadOrSeedCredentials(
 ```
 
 Lab broker + Node-RED: [deploy/README.md](deploy/README.md).  
-SDK details: [components/crearts_iot/README.md](components/crearts_iot/README.md).
+SDK details: [components/crearts_iot/README.md](components/crearts_iot/README.md) · [Developer Manual §7](docs/embed-framework-manual.md#7-crearts_iot--crearts-iot-platform-sdk).
 
 Until the platform provisions broker users, create the MQTT user manually:
 
@@ -112,6 +114,8 @@ Point the device at the **Go platform** MQTT broker (**LAN IP**, not `localhost`
 | alicloud_iot | Alink modules (things, OTA, NTP, …) |
 | alicloud_oss | OSS client + `OssService` + `OssUploadService` |
 | [thingsboard](components/thingsboard/README.md) | ThingsBoard MQTT device API |
+
+Full API reference and usage examples: **[Developer Manual](docs/embed-framework-manual.md)**.
 
 ## MQTT reconnect
 
@@ -186,6 +190,7 @@ See [docs/ci.md](docs/ci.md). Workflows: `.gitea/workflows/ci.yml` (mirrored und
 
 | Doc | Contents |
 |-----|----------|
+| [**Developer Manual**](docs/embed-framework-manual.md) | Full guide: all components, API, examples, iot-platform-go integration |
 | [docs/architecture.md](docs/architecture.md) | Layering, events, ownership |
 | [docs/iot-platform-mqtt-spec.md](docs/iot-platform-mqtt-spec.md) | Crearts MQTT protocol v1 |
 | [docs/iot-platform-service-prompt.md](docs/iot-platform-service-prompt.md) | Platform (Go/React/Node-RED) design prompt |

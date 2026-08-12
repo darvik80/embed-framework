@@ -367,6 +367,21 @@ bool LedStripService::clear(int gpio) {
     return fill(gpio, 0, 0, 0);
 }
 
+bool LedStripService::refresh(int gpio) {
+    if (!hw_) {
+        return false;
+    }
+    xSemaphoreTake(hw_->lock, portMAX_DELAY);
+    Strip* s = find(gpio);
+    if (!s) {
+        xSemaphoreGive(hw_->lock);
+        return false;
+    }
+    const bool ok = refresh(*s);
+    xSemaphoreGive(hw_->lock);
+    return ok;
+}
+
 bool LedStripService::refresh(Strip& s) {
     if (!s.handle || !s.pixels) {
         return false;

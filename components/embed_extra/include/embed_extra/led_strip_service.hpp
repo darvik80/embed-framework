@@ -64,6 +64,9 @@ public:
     bool fill(int gpio, uint8_t r, uint8_t g, uint8_t b);
     bool clear(int gpio);
 
+    /// Push pixel buffer to hardware (after one or more setPixel calls).
+    bool refresh(int gpio);
+
     Signal<LedStripChanged> onChanged;
 
 private:
