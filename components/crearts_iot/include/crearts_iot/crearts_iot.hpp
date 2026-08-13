@@ -12,3 +12,5 @@
 #include "crearts_iot/metrics_telemetry_bridge.hpp"
 #include "crearts_iot/device_info_service.hpp"
 #include "crearts_iot/ota_service.hpp"
+#include "crearts_iot/ntp_service.hpp"
+#include "crearts_iot/log_service.hpp"

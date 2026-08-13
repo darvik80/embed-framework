@@ -11,6 +11,8 @@ idf_component_register(
         "src/metrics_telemetry_bridge.cpp"
         "src/device_info_service.cpp"
         "src/ota_service.cpp"
+        "src/ntp_service.cpp"
+        "src/log_service.cpp"
     INCLUDE_DIRS
         "include"
     REQUIRES

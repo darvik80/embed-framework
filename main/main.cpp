@@ -653,6 +653,8 @@ extern "C" void app_main() {
         registry.createService<crearts::iot::IotService>(*creartsCreds);
         registry.createService<crearts::iot::MetricsTelemetryBridge>();
         registry.createService<crearts::iot::OtaService>();
+        registry.createService<crearts::iot::NtpService>();
+        registry.createService<crearts::iot::LogService>();
         registry.createService<crearts::iot::DeviceInfo>();
         registry.createService<CreartsRpcDemo>();
     } else if (!portal) {
