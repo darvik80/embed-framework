@@ -89,15 +89,9 @@ void WifiService::ipEventHandler(void* arg, esp_event_base_t /*event_base*/,
 }
 
 esp_err_t WifiService::initEventLoop() {
-    // Create default event loop (required by esp_wifi)
-    esp_err_t ret = esp_event_loop_create_default();
-    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
-        ESP_LOGE(TAG, "Failed to create default event loop: %s", esp_err_to_name(ret));
-        return ret;
-    }
-
+    // Default event loop is created by EventLoop::init() in app_main.
     // Register WiFi event handler on default event loop
-    ret = esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
+    esp_err_t ret = esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
                                                &wifiEventHandler, this,
                                                &wifiEventHandler_);
     if (ret != ESP_OK) {

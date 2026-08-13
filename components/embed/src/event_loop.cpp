@@ -10,21 +10,12 @@ EventLoop& EventLoop::instance() {
 void EventLoop::init() {
     if (initialized_) return;
 
-#if EMBED_THREAD_SAFE
-    mutex_ = xSemaphoreCreateMutex();
-#endif
-
-    // ESP-IDF v5.5 struct order: queue_size, task_name, task_priority, task_stack_size, task_core_id
-    esp_event_loop_args_t args = {
-        .queue_size = EMBED_EVENT_QUEUE_SIZE,
-        .task_name = "embed_evt",
-        .task_priority = EMBED_EVENT_TASK_PRIORITY,
-        .task_stack_size = EMBED_EVENT_TASK_STACK_SIZE,
-        .task_core_id = tskNO_AFFINITY,
-    };
-
-    esp_err_t err = esp_event_loop_create(&args, &handle_);
-    if (err == ESP_OK) {
+    // Create the system default event loop (idempotent at ESP-IDF level).
+    // WiFi, IP, and framework events all share this single loop.
+    esp_err_t err = esp_event_loop_create_default();
+    if (err == ESP_OK || err == ESP_ERR_INVALID_STATE) {
+        // ESP_ERR_INVALID_STATE means the default loop already exists —
+        // that is fine, we can still use it.
         initialized_ = true;
     }
 }
@@ -32,18 +23,8 @@ void EventLoop::init() {
 void EventLoop::deinit() {
     if (!initialized_) return;
 
-    if (handle_) {
-        esp_event_loop_delete(handle_);
-        handle_ = nullptr;
-    }
+    esp_event_loop_delete_default();
     initialized_ = false;
-
-#if EMBED_THREAD_SAFE
-    if (mutex_) {
-        vSemaphoreDelete(mutex_);
-        mutex_ = nullptr;
-    }
-#endif
 }
 
 esp_err_t EventLoop::registerHandler(esp_event_base_t base,
@@ -51,31 +32,17 @@ esp_err_t EventLoop::registerHandler(esp_event_base_t base,
                                       esp_event_handler_t handler,
                                       void* arg,
                                       esp_event_handler_instance_t* instance) {
-    if (!handle_) return ESP_ERR_INVALID_STATE;
-#if EMBED_THREAD_SAFE
-    if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
-#endif
-    esp_err_t err = esp_event_handler_instance_register_with(
-        handle_, base, id, handler, arg, instance);
-#if EMBED_THREAD_SAFE
-    if (mutex_) xSemaphoreGive(mutex_);
-#endif
-    return err;
+    if (!initialized_) return ESP_ERR_INVALID_STATE;
+    return esp_event_handler_instance_register(
+        base, id, handler, arg, instance);
 }
 
 esp_err_t EventLoop::unregisterHandler(esp_event_base_t base,
                                         int32_t id,
                                         esp_event_handler_instance_t instance) {
-    if (!handle_) return ESP_ERR_INVALID_STATE;
-#if EMBED_THREAD_SAFE
-    if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
-#endif
-    esp_err_t err = esp_event_handler_instance_unregister_with(
-        handle_, base, id, instance);
-#if EMBED_THREAD_SAFE
-    if (mutex_) xSemaphoreGive(mutex_);
-#endif
-    return err;
+    if (!initialized_) return ESP_ERR_INVALID_STATE;
+    return esp_event_handler_instance_unregister(
+        base, id, instance);
 }
 
 } // namespace embed

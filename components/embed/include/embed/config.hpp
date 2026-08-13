@@ -12,18 +12,6 @@
 #define EMBED_MAX_CONNECTIONS 64
 #endif
 
-#ifndef EMBED_EVENT_QUEUE_SIZE
-#define EMBED_EVENT_QUEUE_SIZE 32
-#endif
-
-#ifndef EMBED_EVENT_TASK_PRIORITY
-#define EMBED_EVENT_TASK_PRIORITY 5
-#endif
-
-#ifndef EMBED_EVENT_TASK_STACK_SIZE
-#define EMBED_EVENT_TASK_STACK_SIZE 8192
-#endif
-
 // Max wait when posting to the embed event queue (ms).
 // Prevents producers from blocking forever if the queue is full.
 // Set to -1 to restore portMAX_DELAY (not recommended).
