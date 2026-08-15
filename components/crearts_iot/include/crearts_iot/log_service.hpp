@@ -5,6 +5,7 @@
 #include "crearts_iot/crearts_iot_service.hpp"
 
 #include <cstdint>
+#include <string>
 
 namespace crearts::iot {
 
@@ -34,9 +35,7 @@ private:
     vprintf_like_t originalVprintf_ = nullptr;
 
     // Batch buffer: accumulate JSON objects, flush as array.
-    static constexpr int kBufSize = 1536;
-    char batchBuf_[kBufSize]{};
-    int batchLen_ = 0;
+    std::string batchBuf_;
     int entryCount_ = 0;
 
     // Re-entrancy guard.

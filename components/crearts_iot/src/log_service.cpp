@@ -210,36 +210,32 @@ void LogService::appendEntry(int level, const char* tag, const char* msg)
         msg);
     if (n <= 0 || n >= (int)sizeof(entry)) return;
 
-    // Check if adding this entry would overflow the batch buffer.
-    // Format: [entry,entry,...] — need space for comma + brackets.
-    const int needed = (batchLen_ > 0 ? 1 : 0) + n; // comma separator + entry
-    if (batchLen_ + needed + 2 > kBufSize) { // +2 for [ and ]
+    // Flush if buffer grew too large (heuristic: 1536 bytes).
+    if (batchBuf_.size() + n + 3 > 1536) {
         flush();
     }
 
-    if (batchLen_ > 0) {
-        batchBuf_[batchLen_++] = ',';
+    if (!batchBuf_.empty()) {
+        batchBuf_ += ',';
     } else {
-        batchBuf_[batchLen_++] = '[';
+        batchBuf_ = '[';
     }
-    memcpy(batchBuf_ + batchLen_, entry, n);
-    batchLen_ += n;
+    batchBuf_.append(entry, n);
     entryCount_++;
 }
 
 void LogService::flush()
 {
-    if (batchLen_ == 0 || !iot_) return;
+    if (batchBuf_.empty() || !iot_) return;
 
     // Close the JSON array.
-    batchBuf_[batchLen_++] = ']';
-    batchBuf_[batchLen_] = '\0';
+    batchBuf_ += ']';
 
     publishing_ = true;
-    iot_->publishLogs(std::string_view(batchBuf_, batchLen_), 0);
+    iot_->publishLogs(batchBuf_, 0);
     publishing_ = false;
 
-    batchLen_ = 0;
+    batchBuf_.clear();
     entryCount_ = 0;
 }
 
