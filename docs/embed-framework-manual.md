@@ -34,8 +34,8 @@
    - [6.1 LedStripService](#61-ledstripservice)
    - [6.2 CameraService](#62-cameraservice)
    - [6.3 MjpegService](#63-mjpegservice)
-7. [`crearts_iot` — Crearts IoT Platform SDK](#7-crearts_iot--crearts-iot-platform-sdk)
-   - [7.1 CreartsCredentials](#71-creartscredentials)
+7. [`cogitor_iot` — Cogitor IoT Platform SDK](#7-cogitor_iot--cogitor-iot-platform-sdk)
+   - [7.1 CogitorCredentials](#71-cogitorcredentials)
    - [7.2 Credential Store (NVS)](#72-credential-store-nvs)
    - [7.3 Topics & Topic Styles](#73-topics--topic-styles)
    - [7.4 IotService](#74-iotservice)
@@ -61,7 +61,7 @@
 - A **typed pub/sub system** (Signal/Slot) built on `esp_event`
 - A **CRTP state machine** for modeling service lifecycles
 - **Trivially-copyable containers** (`string`, `array`, `optional`, `variant`, `pair`, `tuple`) safe for event-loop transport
-- Ready-made services for **WiFi**, **MQTT**, **metrics**, **OTA**, **LED strips**, **camera**, and **Crearts IoT Platform** integration
+- Ready-made services for **WiFi**, **MQTT**, **metrics**, **OTA**, **LED strips**, **camera**, and **Cogitor IoT Platform** integration
 
 The framework is split into four ESP-IDF components:
 
@@ -70,7 +70,7 @@ The framework is split into four ESP-IDF components:
 | `embed` | Core primitives — no ESP-IDF service dependencies |
 | `embed_core` | WiFi, MQTT, NVS, metrics, config portal |
 | `embed_extra` | Camera, MJPEG streaming, WS2812 LED strips |
-| `crearts_iot` | Crearts IoT Platform device SDK (protocol v1) |
+| `cogitor_iot` | Cogitor IoT Platform device SDK (protocol v1) |
 
 ---
 
@@ -80,7 +80,7 @@ The framework is split into four ESP-IDF components:
 ┌─────────────────────────────────────────────────┐
 │ main (product wiring, Kconfig, RPC handlers)    │
 ├─────────────────────────────────────────────────┤
-│ crearts_iot  (IoT Platform SDK, protocol v1)    │
+│ cogitor_iot  (IoT Platform SDK, protocol v1)    │
 │ alicloud_*   (Alibaba Cloud IoT)                │
 │ thingsboard  (ThingsBoard client)               │
 ├─────────────────────────────────────────────────┤
@@ -168,8 +168,8 @@ dependencies:
     path: components/embed
   embed_core:
     path: components/embed_core
-  crearts_iot:
-    path: components/crearts_iot
+  cogitor_iot:
+    path: components/cogitor_iot
 ```
 
 ---
@@ -526,7 +526,7 @@ All limits are overridable via CMake `target_compile_definitions`:
 #include "embed_core/metrics_service.hpp"
 #include "embed_core/nvs_store.hpp"
 #include "embed_core/device_settings.hpp"
-#include "embed_core/config_portal_service.hpp"
+#include "cogitor_iot/config_portal_service.hpp"
 #include "embed_core/firmware_slot.hpp"
 ```
 
@@ -565,7 +565,7 @@ embed::NvsStore::eraseFactoryPartition();
 
 ### 5.2 Device Settings
 
-High-level API for WiFi and Crearts MQTT settings stored in NVS.
+WiFi settings live in embed_core; Cogitor MQTT identity in cogitor_iot.
 
 ```cpp
 #include "embed_core/device_settings.hpp"
@@ -576,26 +576,26 @@ if (embed::loadWifiSettings(wifi)) {
     // wifi.ssid, wifi.password are populated
 }
 
-// Load Crearts MQTT settings
-embed::CreartsSettings crearts;
-if (embed::loadCreartsSettings(crearts)) {
-    // crearts.product, crearts.device, crearts.host,
-    // crearts.token, crearts.port, crearts.useTls, crearts.topicShort
+// Load Cogitor MQTT settings
+cogitor::iot::CogitorSettings cogitor;
+if (cogitor::iot::loadSettings(cogitor)) {
+    // cogitor.product, cogitor.device, cogitor.host,
+    // cogitor.token, cogitor.port, cogitor.useTls, cogitor.topicShort
 }
 
 // Save settings
 embed::saveWifiSettings(wifi);
-embed::saveCreartsSettings(crearts);
+cogitor::iot::saveSettings(cogitor);
 
 // Check if settings are complete
-bool complete = embed::creartsSettingsComplete(crearts);
+bool complete = cogitor::iot::settingsComplete(cogitor);
 
 // Backup / restore
-embed::backupSettings();                    // active → backup NVS namespace
-embed::restoreSettingsBackup();             // backup → active
+cogitor::iot::backupDeviceSettings();                    // active → backup NVS namespace
+cogitor::iot::restoreDeviceSettingsBackup();             // backup → active
 
 // Factory reset (wipe active, keep backup)
-embed::factoryResetSettings();
+cogitor::iot::factoryResetSettings();
 
 // Config portal detection
 bool needs = embed::needsConfigPortal();    // true if portal flag set or no WiFi SSID
@@ -603,8 +603,8 @@ embed::setConfigPortalRequested(true);      // force portal on next boot
 
 // Import/export credentials JSON
 char jsonBuf[2048];
-embed::exportCredentialsJson(jsonBuf, sizeof(jsonBuf), true);  // include secrets
-embed::importCredentialsJson(jsonStr);      // parse + save + clear portal flag
+cogitor::iot::exportCredentialsJson(jsonBuf, sizeof(jsonBuf), true);  // include secrets
+cogitor::iot::importCredentialsJson(jsonStr);      // parse + save + clear portal flag
 
 // Reboot helpers
 embed::scheduleReboot(1000);  // reboot in 1 second
@@ -612,12 +612,12 @@ embed::scheduleReboot(1000);  // reboot in 1 second
 // Factory reset via GPIO (BOOT button hold)
 embed::startFactoryResetGpioWatch();
 if (embed::factoryResetGpioHeld()) {
-    embed::factoryResetSettings();
+    cogitor::iot::factoryResetSettings();
 }
 
 // Factory reset via RST burst (EN/RST pressed N times quickly)
 if (embed::checkRstBurstFactoryReset()) {
-    embed::factoryResetSettings();
+    cogitor::iot::factoryResetSettings();
 }
 ```
 
@@ -628,7 +628,7 @@ if (embed::checkRstBurstFactoryReset()) {
     "ssid": "MyNetwork",
     "password": "secret"
   },
-  "crearts": {
+  "cogitor": {
     "product": "home",
     "device": "esp32-s3",
     "host": "192.168.1.100",
@@ -714,7 +714,7 @@ public:
 };
 ```
 
-Implement this for any MQTT broker (Crearts, AWS IoT, Azure, plain MQTT).
+Implement this for any MQTT broker (Cogitor, AWS IoT, Azure, plain MQTT).
 
 #### MqttService
 
@@ -821,10 +821,10 @@ Collection interval: `CONFIG_EMBED_METRICS_INTERVAL_MS` (default 10000 ms).
 
 ### 5.6 ConfigPortalService
 
-HTTP setup UI for WiFi + Crearts MQTT credentials.
+HTTP setup UI for WiFi + Cogitor MQTT (`cogitor_iot::ConfigPortalService`).
 
 ```cpp
-registry.createService<embed::ConfigPortalService>();
+registry.createService<cogitor::iot::ConfigPortalService>();
 ```
 
 **Endpoints:**
@@ -832,7 +832,7 @@ registry.createService<embed::ConfigPortalService>();
 - STA (optional): `http://<device-ip>/` (when `CONFIG_EMBED_CONFIG_HTTP_STA=y`)
 
 **Features:**
-- Web form to enter WiFi SSID/password and Crearts MQTT settings
+- Web form to enter WiFi SSID/password and Cogitor MQTT settings
 - JSON import/export (`GET /credentials.json`)
 - Save writes to `fctry` and reboots
 - Factory reset button in UI (wipes identity, reboots into portal)
@@ -965,17 +965,17 @@ registry.startAll();
 
 ---
 
-## 7. `crearts_iot` — Crearts IoT Platform SDK
+## 7. `cogitor_iot` — Cogitor IoT Platform SDK
 
-Device-side SDK for the [Crearts IoT Platform](#8-integration-with-iot-platform-go) (protocol v1). Implements the full MQTT spec: telemetry, attributes, RPC, NTP, OTA, events, logs.
+Device-side SDK for the [Cogitor IoT Platform](#8-integration-with-iot-platform-go) (protocol v1). Implements the full MQTT spec: telemetry, attributes, RPC, NTP, OTA, events, logs.
 
 ```cpp
-#include "crearts_iot/crearts_iot.hpp"
+#include "cogitor_iot/cogitor_iot.hpp"
 ```
 
-### 7.1 CreartsCredentials
+### 7.1 CogitorCredentials
 
-MQTT credentials for the Crearts platform. Implements `embed::MqttCredentials`.
+MQTT credentials for the Cogitor platform. Implements `embed::MqttCredentials`.
 
 **Auth model:**
 ```
@@ -989,28 +989,28 @@ password  = <access_token>
 - Retained, QoS 1
 
 ```cpp
-#include "crearts_iot/crearts_iot.hpp"
+#include "cogitor_iot/cogitor_iot.hpp"
 
 // Production: access token from dashboard
-static auto creds = crearts::iot::CreartsCredentials::createAccessToken(
+static auto creds = cogitor::iot::CogitorCredentials::createAccessToken(
     "home",                    // product_id
     "esp32-s3-001",           // device_id
     "192.168.1.100",          // broker host
     "dashboard-issued-token",  // access token
-    crearts::iot::TopicStyle::Short,  // or Full
+    cogitor::iot::TopicStyle::Short,  // or Full
     false,                     // useTls
     0                          // port (0 = default 1883/8883)
 );
 
 // Lab: explicit username/password
-static auto creds = crearts::iot::CreartsCredentials::createBasic(
+static auto creds = cogitor::iot::CogitorCredentials::createBasic(
     "home", "device1", "broker.local",
     "myuser", "mypass",
-    crearts::iot::TopicStyle::Short
+    cogitor::iot::TopicStyle::Short
 );
 
 if (!creds || !creds->isValid()) {
-    ESP_LOGE("app", "Invalid Crearts credentials");
+    ESP_LOGE("app", "Invalid Cogitor credentials");
     return;
 }
 
@@ -1023,22 +1023,22 @@ registry.createService<embed::MqttService>(*creds);
 Load credentials from NVS `fctry`, seeding from Kconfig on first boot:
 
 ```cpp
-static auto creds = crearts::iot::loadOrSeedCredentials(
-    CONFIG_EMBED_CREARTS_IOT_PRODUCT_ID,
-    CONFIG_EMBED_CREARTS_IOT_DEVICE_ID,
-    CONFIG_EMBED_CREARTS_IOT_HOST,
-    CONFIG_EMBED_CREARTS_IOT_ACCESS_TOKEN,
-#ifdef CONFIG_EMBED_CREARTS_IOT_TOPIC_SHORT
-    crearts::iot::TopicStyle::Short,
+static auto creds = cogitor::iot::loadOrSeedCredentials(
+    CONFIG_EMBED_COGITOR_IOT_PRODUCT_ID,
+    CONFIG_EMBED_COGITOR_IOT_DEVICE_ID,
+    CONFIG_EMBED_COGITOR_IOT_HOST,
+    CONFIG_EMBED_COGITOR_IOT_ACCESS_TOKEN,
+#ifdef CONFIG_EMBED_COGITOR_IOT_TOPIC_SHORT
+    cogitor::iot::TopicStyle::Short,
 #else
-    crearts::iot::TopicStyle::Full,
+    cogitor::iot::TopicStyle::Full,
 #endif
-#ifdef CONFIG_EMBED_CREARTS_IOT_USE_TLS
+#ifdef CONFIG_EMBED_COGITOR_IOT_USE_TLS
     true,
 #else
     false,
 #endif
-    static_cast<uint16_t>(CONFIG_EMBED_CREARTS_IOT_PORT)
+    static_cast<uint16_t>(CONFIG_EMBED_COGITOR_IOT_PORT)
 );
 ```
 
@@ -1061,17 +1061,17 @@ Two topic styles, same payloads:
 The `Topics` class builds all topic strings:
 
 ```cpp
-crearts::iot::Topics topics("home", "esp32-s3", crearts::iot::TopicStyle::Short);
+cogitor::iot::Topics topics("home", "esp32-s3", cogitor::iot::TopicStyle::Short);
 
 std::string t = topics.telemetryPublish();       // "v1/me/t" (short) or full path
 std::string r = topics.rpcRequestSubscribe();     // "v1/me/r/req"
 std::string d = topics.downstreamSubscribe();     // "v1/me/#"
 ```
 
-**Topic constants** are in `crearts::iot::topic_str`:
+**Topic constants** are in `cogitor::iot::topic_str`:
 
 ```cpp
-namespace crearts::iot::topic_str {
+namespace cogitor::iot::topic_str {
     namespace dir   { kUp, kDown }
     namespace cap   { kStatus, kTelemetry, kEvents, kAttributes, kRpc, kNtp, kOta, kLogs }
     namespace op    { kData, kPost, kReport, kRequest, kResponse, kUpdate, ... }
@@ -1082,10 +1082,10 @@ namespace crearts::iot::topic_str {
 
 ### 7.4 IotService
 
-Central service for Crearts IoT protocol. Subscribes to downstream topics on MQTT connect, dispatches incoming messages to signals.
+Central service for Cogitor IoT protocol. Subscribes to downstream topics on MQTT connect, dispatches incoming messages to signals.
 
 ```cpp
-auto* iot = registry.createService<crearts::iot::IotService>(*creds);
+auto* iot = registry.createService<cogitor::iot::IotService>(*creds);
 ```
 
 **Signals emitted:**
@@ -1116,7 +1116,7 @@ iot->publishAttributes(builder);  // AttributeBuilder
 
 // Request attributes from platform
 uint32_t reqId;
-crearts::iot::AttributeRequestBuilder req;
+cogitor::iot::AttributeRequestBuilder req;
 req.addDesired("targetTemperature").addReported("firmwareVersion");
 iot->requestAttributes(req, reqId);
 
@@ -1149,7 +1149,7 @@ Builds telemetry JSON in three formats:
 
 ```cpp
 // 1. Simple KV (server stamps receive time)
-crearts::iot::TelemetryBuilder builder;
+cogitor::iot::TelemetryBuilder builder;
 builder.add("temperature", 22.5)
        .add("humidity", 61)
        .add("cpuUsage", 45);
@@ -1162,10 +1162,10 @@ std::string json = builder.build();
 // → {"ts":1705312200000,"values":{"temperature":22.5,...}}
 
 // 3. Batch (multiple timestamped entries)
-crearts::iot::TelemetryBatch batch;
-crearts::iot::TelemetryBuilder b1;
+cogitor::iot::TelemetryBatch batch;
+cogitor::iot::TelemetryBuilder b1;
 b1.timestampMs(1705312200000).add("temperature", 22.5);
-crearts::iot::TelemetryBuilder b2;
+cogitor::iot::TelemetryBuilder b2;
 b2.timestampMs(1705312201000).add("temperature", 23.0);
 batch.add(std::move(b1));
 batch.add(std::move(b2));
@@ -1188,7 +1188,7 @@ iot->publishTelemetry(rawJson);   // pre-built string_view
 #### AttributeBuilder (reported)
 
 ```cpp
-crearts::iot::AttributeBuilder builder;
+cogitor::iot::AttributeBuilder builder;
 builder.add("firmwareVersion", "2.1.0")
        .add("model", "ESP32-S3")
        .add("serialNumber", "SN-4A21F");
@@ -1199,7 +1199,7 @@ iot->publishAttributes(builder);
 #### AttributeRequestBuilder (request from platform)
 
 ```cpp
-crearts::iot::AttributeRequestBuilder req;
+cogitor::iot::AttributeRequestBuilder req;
 req.addReported("firmwareVersion")
    .addDesired("targetTemperature")
    .addDesired("enabled");
@@ -1211,16 +1211,16 @@ iot->requestAttributes(req, reqId);
 #### Handling attribute updates (desired push from platform)
 
 ```cpp
-embed::Slot<crearts::iot::AttributeUpdate> attrSlot_{onAttrUpd, this};
+embed::Slot<cogitor::iot::AttributeUpdate> attrSlot_{onAttrUpd, this};
 
-static void onAttrUpd(const crearts::iot::AttributeUpdate& upd, void* ctx) {
+static void onAttrUpd(const cogitor::iot::AttributeUpdate& upd, void* ctx) {
     // upd.payload is flat JSON of changed desired keys
     double targetTemp;
-    if (crearts::iot::attributeGetNumber(upd.payload, "targetTemperature", targetTemp)) {
+    if (cogitor::iot::attributeGetNumber(upd.payload, "targetTemperature", targetTemp)) {
         // Apply new target temperature
     }
     bool enabled;
-    if (crearts::iot::attributeGetBool(upd.payload, "enabled", enabled)) {
+    if (cogitor::iot::attributeGetBool(upd.payload, "enabled", enabled)) {
         // Enable/disable device
     }
 }
@@ -1229,7 +1229,7 @@ static void onAttrUpd(const crearts::iot::AttributeUpdate& upd, void* ctx) {
 #### Parsing attribute responses
 
 ```cpp
-auto values = crearts::iot::parseAttributeResponse(payload);
+auto values = cogitor::iot::parseAttributeResponse(payload);
 // values.reportedJson → {"firmwareVersion":"2.1.0",...}
 // values.desiredJson  → {"targetTemperature":25,...}
 ```
@@ -1240,27 +1240,27 @@ auto values = crearts::iot::parseAttributeResponse(payload);
 
 ```cpp
 auto* iot = embed::ServiceRegistry::instance()
-                .getService<crearts::iot::IotService>();
+                .getService<cogitor::iot::IotService>();
 
 // Define parameters
-static constexpr crearts::iot::RpcParamDef kEcho[] = {
-    crearts::iot::rpcStr("msg")
+static constexpr cogitor::iot::RpcParamDef kEcho[] = {
+    cogitor::iot::rpcStr("msg")
 };
 
-static constexpr crearts::iot::RpcParamDef kSetLed[] = {
-    crearts::iot::rpcInt("gpio"),
-    crearts::iot::rpcInt("offset"),
-    crearts::iot::rpcInt("length"),
-    crearts::iot::rpcInt("r", false, 255),      // optional, default 255
-    crearts::iot::rpcInt("g", false, 255),
-    crearts::iot::rpcInt("b", false, 255),
-    crearts::iot::rpcBool("on", false, true),    // optional, default true
+static constexpr cogitor::iot::RpcParamDef kSetLed[] = {
+    cogitor::iot::rpcInt("gpio"),
+    cogitor::iot::rpcInt("offset"),
+    cogitor::iot::rpcInt("length"),
+    cogitor::iot::rpcInt("r", false, 255),      // optional, default 255
+    cogitor::iot::rpcInt("g", false, 255),
+    cogitor::iot::rpcInt("b", false, 255),
+    cogitor::iot::rpcBool("on", false, true),    // optional, default true
 };
 
 // Handler signature
-static void onEcho(crearts::iot::IotService& iot,
+static void onEcho(cogitor::iot::IotService& iot,
                    uint32_t requestId,
-                   const crearts::iot::RpcParams& params,
+                   const cogitor::iot::RpcParams& params,
                    void* ctx)
 {
     std::string msg;
@@ -1284,14 +1284,14 @@ iot->rpc().add("reboot", onReboot, nullptr, "Reboot device");
 
 ```cpp
 // Factory functions for parameter definitions
-crearts::iot::rpcInt("name")                    // required int
-crearts::iot::rpcInt("name", false, 42)         // optional int, default 42
-crearts::iot::rpcBool("name")                   // required bool
-crearts::iot::rpcBool("name", false, true)       // optional bool, default true
-crearts::iot::rpcStr("name")                    // required string
-crearts::iot::rpcStr("name", false, "default")   // optional string, default
-crearts::iot::rpcNum("name")                    // required number (double)
-crearts::iot::rpcNum("name", false, 3.14)        // optional number, default
+cogitor::iot::rpcInt("name")                    // required int
+cogitor::iot::rpcInt("name", false, 42)         // optional int, default 42
+cogitor::iot::rpcBool("name")                   // required bool
+cogitor::iot::rpcBool("name", false, true)       // optional bool, default true
+cogitor::iot::rpcStr("name")                    // required string
+cogitor::iot::rpcStr("name", false, "default")   // optional string, default
+cogitor::iot::rpcNum("name")                    // required number (double)
+cogitor::iot::rpcNum("name", false, 3.14)        // optional number, default
 ```
 
 #### RpcParams (inside handler)
@@ -1357,9 +1357,9 @@ uint32_t requestId;
 iot->requestNtp(requestId, deviceSendTimeMs);
 
 // Handle response
-embed::Slot<crearts::iot::NtpResponse> ntpSlot_{onNtp, this};
+embed::Slot<cogitor::iot::NtpResponse> ntpSlot_{onNtp, this};
 
-static void onNtp(const crearts::iot::NtpResponse& resp, void* ctx) {
+static void onNtp(const cogitor::iot::NtpResponse& resp, void* ctx) {
     int64_t deviceRecvTimeMs = esp_timer_get_time() / 1000;
     int64_t rtt = deviceRecvTimeMs - resp.deviceSendTime;
     int64_t serverTime = resp.serverSendTime + rtt / 2;
@@ -1372,7 +1372,7 @@ static void onNtp(const crearts::iot::NtpResponse& resp, void* ctx) {
 `OtaService` handles firmware updates from the platform automatically.
 
 ```cpp
-registry.createService<crearts::iot::OtaService>();
+registry.createService<cogitor::iot::OtaService>();
 ```
 
 **Flow:**
@@ -1417,7 +1417,7 @@ registry.createService<crearts::iot::OtaService>();
 Reports static **reported** attributes on each MQTT connect and requests **desired** attributes:
 
 ```cpp
-registry.createService<crearts::iot::DeviceInfo>();
+registry.createService<cogitor::iot::DeviceInfo>();
 ```
 
 On MQTT connect, `DeviceInfo` publishes:
@@ -1427,10 +1427,10 @@ And requests all desired attributes from the platform.
 
 ### 7.11 MetricsTelemetryBridge
 
-Forwards `MetricsService` data to Crearts IoT telemetry automatically:
+Forwards `MetricsService` data to Cogitor IoT telemetry automatically:
 
 ```cpp
-registry.createService<crearts::iot::MetricsTelemetryBridge>();
+registry.createService<cogitor::iot::MetricsTelemetryBridge>();
 ```
 
 On each `MetricsCollected` signal, builds and publishes telemetry JSON:
@@ -1452,7 +1452,7 @@ On each `MetricsCollected` signal, builds and publishes telemetry JSON:
 
 ## 8. Integration with iot-platform-go
 
-The [Crearts IoT Platform](https://github.com/your-org/iot-platform-go) (`iot-platform-go`) is a self-hosted, single-binary IoT backend with embedded MQTT broker, SQLite, and React dashboard.
+The [Cogitor IoT Platform](https://github.com/your-org/iot-platform-go) (`iot-platform-go`) is a self-hosted, single-binary IoT backend with embedded MQTT broker, SQLite, and React dashboard.
 
 ### Platform Setup
 
@@ -1475,7 +1475,7 @@ services:
 
 1. **Create a Product** in the dashboard (defines schema: RPC methods, telemetry metrics, attributes)
 2. **Register a Device** → dashboard shows a one-time access token
-3. Copy the token to firmware via `idf.py menuconfig` → `CONFIG_EMBED_CREARTS_IOT_ACCESS_TOKEN`
+3. Copy the token to firmware via `idf.py menuconfig` → `CONFIG_EMBED_COGITOR_IOT_ACCESS_TOKEN`
 4. Or use the **Config Portal** (SoftAP + HTTP) to enter credentials on-device
 
 ### MQTT Connection
@@ -1535,7 +1535,7 @@ The platform exposes an MCP endpoint at `/mcp`. Any MCP-compatible AI client (Cu
 
 ## 9. Complete Application Example
 
-Full `app_main` wiring for a Crearts IoT device with WiFi, MQTT, metrics, OTA, LED strip, and custom RPC:
+Full `app_main` wiring for a Cogitor IoT device with WiFi, MQTT, metrics, OTA, LED strip, and custom RPC:
 
 ```cpp
 #include "esp_crt_bundle.h"
@@ -1546,8 +1546,8 @@ Full `app_main` wiring for a Crearts IoT device with WiFi, MQTT, metrics, OTA, L
 #include "embed_core/nvs_store.hpp"
 #include "embed_core/device_settings.hpp"
 #include "embed_core/firmware_slot.hpp"
-#include "embed_core/config_portal_service.hpp"
-#include "crearts_iot/crearts_iot.hpp"
+#include "cogitor_iot/config_portal_service.hpp"
+#include "cogitor_iot/cogitor_iot.hpp"
 #include "embed_extra/led_strip_service.hpp"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -1563,10 +1563,10 @@ public:
 
     void start() override {
         auto* iot = embed::ServiceRegistry::instance()
-                        .getService<crearts::iot::IotService>();
+                        .getService<cogitor::iot::IotService>();
         if (!iot) return;
 
-        using namespace crearts::iot;
+        using namespace cogitor::iot;
 
         static constexpr RpcParamDef kSetBrightness[] = {
             rpcInt("gpio"), rpcInt("brightness", false, 128)
@@ -1632,7 +1632,7 @@ extern "C" void app_main() {
 
     if (embed::checkRstBurstFactoryReset() || embed::factoryResetGpioHeld()) {
         ESP_LOGW("app", "Factory reset!");
-        embed::factoryResetSettings();
+        cogitor::iot::factoryResetSettings();
     }
 
     embed::checkCrashLoopRollback();
@@ -1642,28 +1642,28 @@ extern "C" void app_main() {
 
     // Determine topic style from Kconfig
     const auto topicStyle =
-#ifdef CONFIG_EMBED_CREARTS_IOT_TOPIC_SHORT
-        crearts::iot::TopicStyle::Short;
+#ifdef CONFIG_EMBED_COGITOR_IOT_TOPIC_SHORT
+        cogitor::iot::TopicStyle::Short;
 #else
-        crearts::iot::TopicStyle::Full;
+        cogitor::iot::TopicStyle::Full;
 #endif
 
-    // Load or seed Crearts credentials from NVS
+    // Load or seed Cogitor credentials from NVS
     const bool portal = embed::needsConfigPortal();
-    static std::optional<crearts::iot::CreartsCredentials> creds;
+    static std::optional<cogitor::iot::CogitorCredentials> creds;
     if (!portal) {
-        creds = crearts::iot::loadOrSeedCredentials(
-            CONFIG_EMBED_CREARTS_IOT_PRODUCT_ID,
-            CONFIG_EMBED_CREARTS_IOT_DEVICE_ID,
-            CONFIG_EMBED_CREARTS_IOT_HOST,
-            CONFIG_EMBED_CREARTS_IOT_ACCESS_TOKEN,
+        creds = cogitor::iot::loadOrSeedCredentials(
+            CONFIG_EMBED_COGITOR_IOT_PRODUCT_ID,
+            CONFIG_EMBED_COGITOR_IOT_DEVICE_ID,
+            CONFIG_EMBED_COGITOR_IOT_HOST,
+            CONFIG_EMBED_COGITOR_IOT_ACCESS_TOKEN,
             topicStyle,
-#ifdef CONFIG_EMBED_CREARTS_IOT_USE_TLS
+#ifdef CONFIG_EMBED_COGITOR_IOT_USE_TLS
             true,
 #else
             false,
 #endif
-            static_cast<uint16_t>(CONFIG_EMBED_CREARTS_IOT_PORT));
+            static_cast<uint16_t>(CONFIG_EMBED_COGITOR_IOT_PORT));
     }
 
     // Build service graph
@@ -1673,15 +1673,15 @@ extern "C" void app_main() {
     if (portal) wifi->enableSoftAp();
 
     registry.createService<embed::MetricsService>();
-    registry.createService<embed::ConfigPortalService>();
+    registry.createService<cogitor::iot::ConfigPortalService>();
 
     const bool mqttOk = !portal && creds && creds->isValid();
     if (mqttOk) {
         registry.createService<embed::MqttService>(*creds);
-        registry.createService<crearts::iot::IotService>(*creds);
-        registry.createService<crearts::iot::MetricsTelemetryBridge>();
-        registry.createService<crearts::iot::OtaService>();
-        registry.createService<crearts::iot::DeviceInfo>();
+        registry.createService<cogitor::iot::IotService>(*creds);
+        registry.createService<cogitor::iot::MetricsTelemetryBridge>();
+        registry.createService<cogitor::iot::OtaService>();
+        registry.createService<cogitor::iot::DeviceInfo>();
         registry.createService<MyRpcHandlers>();
     }
 
@@ -1747,17 +1747,17 @@ extern "C" void app_main() {
 | `CONFIG_EMBED_MQTT_RECONNECT_INTERVAL_MS` | int | 5000 | Reconnect interval |
 | `CONFIG_EMBED_MQTT_KEEPALIVE` | int | 120 | Keepalive (seconds) |
 
-### Crearts IoT (`crearts_iot`)
+### Cogitor IoT (`cogitor_iot`)
 
 | Symbol | Type | Default | Description |
 |--------|------|---------|-------------|
-| `CONFIG_EMBED_CREARTS_IOT_PRODUCT_ID` | string | `"home"` | Product ID |
-| `CONFIG_EMBED_CREARTS_IOT_DEVICE_ID` | string | `"esp32-s3"` | Device ID |
-| `CONFIG_EMBED_CREARTS_IOT_HOST` | string | `"192.168.1.100"` | Broker host (LAN IP) |
-| `CONFIG_EMBED_CREARTS_IOT_ACCESS_TOKEN` | string | `""` | Access token (MQTT password) |
-| `CONFIG_EMBED_CREARTS_IOT_USE_TLS` | bool | n | Use TLS (mqtts) |
-| `CONFIG_EMBED_CREARTS_IOT_PORT` | int | 0 | Port (0 = default) |
-| `CONFIG_EMBED_CREARTS_IOT_TOPIC_SHORT` | bool | n | Use short topic style |
+| `CONFIG_EMBED_COGITOR_IOT_PRODUCT_ID` | string | `"home"` | Product ID |
+| `CONFIG_EMBED_COGITOR_IOT_DEVICE_ID` | string | `"esp32-s3"` | Device ID |
+| `CONFIG_EMBED_COGITOR_IOT_HOST` | string | `"192.168.1.100"` | Broker host (LAN IP) |
+| `CONFIG_EMBED_COGITOR_IOT_ACCESS_TOKEN` | string | `""` | Access token (MQTT password) |
+| `CONFIG_EMBED_COGITOR_IOT_USE_TLS` | bool | n | Use TLS (mqtts) |
+| `CONFIG_EMBED_COGITOR_IOT_PORT` | int | 0 | Port (0 = default) |
+| `CONFIG_EMBED_COGITOR_IOT_TOPIC_SHORT` | bool | n | Use short topic style |
 
 ### Metrics (`embed_core`)
 

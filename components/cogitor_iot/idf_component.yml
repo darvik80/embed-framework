@@ -1,0 +1,5 @@
+version: "1.0.0"
+description: "Cogitor IoT Platform MQTT device SDK for embed-framework"
+dependencies:
+  idf: ">=5.5"
+  espressif/cjson: "^1.7.19"

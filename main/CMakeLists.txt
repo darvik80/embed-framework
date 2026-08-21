@@ -1,7 +1,7 @@
 idf_component_register(
     SRCS "main.cpp"
     INCLUDE_DIRS "."
-    REQUIRES embed embed_core embed_extra crearts_iot
+    REQUIRES embed embed_core embed_extra cogitor_iot
              esp_driver_gpio esp_timer log freertos esp_app_format esp_system
 )
 

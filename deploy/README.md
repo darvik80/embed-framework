@@ -1,4 +1,4 @@
-# Crearts IoT — local stack (RabbitMQ + Node-RED)
+# Cogitor IoT — local stack (RabbitMQ + Node-RED)
 
 ## Quick start
 
@@ -11,7 +11,7 @@ docker compose up -d
 
 | Service | URL / port |
 |---------|------------|
-| RabbitMQ Management | http://localhost:15672 (`crearts` / `crearts`) |
+| RabbitMQ Management | http://localhost:15672 (`cogitor` / `cogitor`) |
 | MQTT | `mqtt://localhost:1883` |
 | MQTT WebSocket | `ws://localhost:15675/ws` |
 | AMQP | `amqp://localhost:5672` |
@@ -101,13 +101,13 @@ Clean restart on Synology:
 docker compose down
 docker volume rm deploy_rabbitmq_data   # name may differ; check `docker volume ls`
 docker compose up -d
-docker logs -f crearts-rabbitmq
+docker logs -f cogitor-rabbitmq
 ```
 
 Confirm mounts are files:
 
 ```bash
-docker exec crearts-rabbitmq ls -la /etc/rabbitmq/
+docker exec cogitor-rabbitmq ls -la /etc/rabbitmq/
 # enabled_plugins and rabbitmq.conf must be files, not directories
 ```
 
@@ -135,18 +135,18 @@ username:   {product_id}.{device_id}
 password:   <access_token>
 ```
 
-Firmware reads the same values from **menuconfig** (`CONFIG_EMBED_CREARTS_IOT_*`) —
-see root [README.md](../README.md) and [components/crearts_iot/README.md](../components/crearts_iot/README.md).
+Firmware reads the same values from **menuconfig** (`CONFIG_EMBED_COGITOR_IOT_*`) —
+see root [README.md](../README.md) and [components/cogitor_iot/README.md](../components/cogitor_iot/README.md).
 
 ### Lab: create device MQTT user on RabbitMQ
 
 Until the platform provisions users automatically:
 
 ```bash
-docker exec crearts-rabbitmq rabbitmqctl add_user \
+docker exec cogitor-rabbitmq rabbitmqctl add_user \
   'home.esp32-s3' \
   '<access_token>'
-docker exec crearts-rabbitmq rabbitmqctl set_permissions -p / \
+docker exec cogitor-rabbitmq rabbitmqctl set_permissions -p / \
   'home.esp32-s3' '.*' '.*' '.*'
 ```
 
@@ -154,7 +154,7 @@ Replace `home.esp32-s3` / `<access_token>` with your product.device and token fr
 
 Without this user, MQTT CONNECT fails with **bad username or password** (`0x4`).
 
-Quick broker check from the PC: `mqtt://localhost:1883` with user/pass `crearts`/`crearts`.
+Quick broker check from the PC: `mqtt://localhost:1883` with user/pass `cogitor`/`cogitor`.
 Device firmware must use the **LAN IP** of the broker host (not `localhost`).
 
 ## Node-RED / rules bus

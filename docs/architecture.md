@@ -6,7 +6,7 @@
 ┌─────────────────────────────────────────┐
 │ main (product / demo wiring, Kconfig)   │
 ├─────────────────────────────────────────┤
-│ crearts_iot / alicloud_* / thingsboard  │
+│ cogitor_iot / alicloud_* / thingsboard  │
 │   (alicloud_oss: OssService + upload)   │
 ├─────────────────────────────────────────┤
 │ embed_extra (camera, mjpeg, led strip)  │
@@ -18,9 +18,9 @@
 
 Dependencies point **downward** only. Cloud providers implement `embed::MqttCredentials` and consume `MqttService` signals; they must not become required by `embed` itself.
 
-`main/` selects a cloud path (default: **Crearts**). Credentials are loaded from NVS (`fctry`, Kconfig seed on first boot), kept `static`, and passed into `MqttService` + the vendor service.
+`main/` selects a cloud path (default: **Cogitor**). Credentials are loaded from NVS (`fctry`, Kconfig seed on first boot), kept `static`, and passed into `MqttService` + the vendor service.
 
-## Crearts session model
+## Cogitor session model
 
 | Concern | Mechanism |
 |---------|-----------|
@@ -71,7 +71,7 @@ With `EMBED_THREAD_SAFE=1` (default):
 
 | Lives in | Examples |
 |----------|----------|
-| NVS `fctry` (on device) | WiFi password, Crearts access token, broker LAN IP — survives OTA / `idf.py flash` |
+| NVS `fctry` (on device) | WiFi password, Cogitor access token, broker LAN IP — survives OTA / `idf.py flash` |
 | Config portal | SoftAP + HTTP (and optional STA HTTP) to write `fctry`; GPIO/RPC factory reset |
 | `sdkconfig` (local, gitignored) | First-boot seed for `fctry` (skipped after factory reset / portal flag) |
 | `sdkconfig.defaults` (committed) | Non-secret defaults, feature toggles |

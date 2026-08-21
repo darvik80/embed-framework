@@ -7,8 +7,7 @@
 #include "embed_core/nvs_store.hpp"
 #include "embed_core/device_settings.hpp"
 #include "embed_core/firmware_slot.hpp"
-#include "embed_core/config_portal_service.hpp"
-#include "crearts_iot/crearts_iot.hpp"
+#include "cogitor_iot/cogitor_iot.hpp"
 #include "embed_extra/led_strip_service.hpp"
 
 #include "esp_tls.h"
@@ -148,31 +147,31 @@ private:
     esp_timer_handle_t timer_ = nullptr;
 };
 
-// ── CreartsRpcDemo ──────────────────────────────────────────────────────
+// ── CogitorRpcDemo ──────────────────────────────────────────────────────
 
-/// Registers firmware RPC methods on CreartsIotService::rpc() (`rpc-list` is built-in).
-class CreartsRpcDemo : public embed::Service {
+/// Registers firmware RPC methods on CogitorIotService::rpc() (`rpc-list` is built-in).
+class CogitorRpcDemo : public embed::Service {
 public:
-    const char* serviceName() const override { return "CreartsRpcDemo"; }
+    const char* serviceName() const override { return "CogitorRpcDemo"; }
 
     void start() override {
         auto* iot = embed::ServiceRegistry::instance()
-                        .getService<crearts::iot::IotService>();
+                        .getService<cogitor::iot::IotService>();
         if (!iot) {
-            ESP_LOGE("CreartsRpc", "CreartsIotService not found");
+            ESP_LOGE("CogitorRpc", "CogitorIotService not found");
             return;
         }
 
-        using crearts::iot::rpcBool;
-        using crearts::iot::rpcInt;
-        using crearts::iot::rpcStr;
+        using cogitor::iot::rpcBool;
+        using cogitor::iot::rpcInt;
+        using cogitor::iot::rpcStr;
         auto& rpc = iot->rpc();
 
-        static constexpr crearts::iot::RpcParamDef kEcho[] = {rpcStr("msg")};
-        static constexpr crearts::iot::RpcParamDef kLedAttach[] = {
+        static constexpr cogitor::iot::RpcParamDef kEcho[] = {rpcStr("msg")};
+        static constexpr cogitor::iot::RpcParamDef kLedAttach[] = {
             rpcInt("gpio"), rpcInt("count"), rpcInt("brightness", false, 0)};
-        static constexpr crearts::iot::RpcParamDef kLedDetach[] = {rpcInt("gpio")};
-        static constexpr crearts::iot::RpcParamDef kSetLed[] = {
+        static constexpr cogitor::iot::RpcParamDef kLedDetach[] = {rpcInt("gpio")};
+        static constexpr cogitor::iot::RpcParamDef kSetLed[] = {
             rpcInt("gpio"),
             rpcInt("offset"),
             rpcInt("length"),
@@ -180,10 +179,10 @@ public:
             rpcInt("g", false, 255),
             rpcInt("b", false, 255),
             rpcBool("on", false, true)};
-        static constexpr crearts::iot::RpcParamDef kReboot[] = {rpcInt("delayMs", false, 500)};
-        static constexpr crearts::iot::RpcParamDef kFactoryReset[] = {rpcBool("confirm")};
-        static constexpr crearts::iot::RpcParamDef kImportCreds[] = {rpcStr("json")};
-        static constexpr crearts::iot::RpcParamDef kExportCreds[] = {rpcBool("secrets", false, false)};
+        static constexpr cogitor::iot::RpcParamDef kReboot[] = {rpcInt("delayMs", false, 500)};
+        static constexpr cogitor::iot::RpcParamDef kFactoryReset[] = {rpcBool("confirm")};
+        static constexpr cogitor::iot::RpcParamDef kImportCreds[] = {rpcStr("json")};
+        static constexpr cogitor::iot::RpcParamDef kExportCreds[] = {rpcBool("secrets", false, false)};
 
         rpc.add("echo", kEcho, onEcho, nullptr, "Echo a string");
         rpc.add("led_attach", kLedAttach, onLedAttach, nullptr, "Attach WS2812 strip on GPIO");
@@ -199,17 +198,17 @@ public:
         rpc.add("ota_rollback", kFactoryReset, onOtaRollback, nullptr,
                 "Boot previous OTA slot (confirm=true)");
         rpc.add("import_credentials", kImportCreds, onImportCredentials, nullptr,
-                "Import WiFi+Crearts from JSON string (params.json)");
+                "Import WiFi+Cogitor from JSON string (params.json)");
         rpc.add("export_credentials", kExportCreds, onExportCredentials, nullptr,
                 "Export credentials JSON (secrets=true includes token)");
 
-        ESP_LOGI("CreartsRpc", "RPC registered (%u + rpc-list)", rpc.count());
+        ESP_LOGI("CogitorRpc", "RPC registered (%u + rpc-list)", rpc.count());
     }
 
     void stop() override {}
 
 private:
-    static void replyJson(crearts::iot::IotService& iot,
+    static void replyJson(cogitor::iot::IotService& iot,
                           uint32_t id,
                           int code,
                           const char* message,
@@ -226,7 +225,7 @@ private:
         if (delayMs > 0) {
             vTaskDelay(pdMS_TO_TICKS(delayMs));
         }
-        ESP_LOGW("CreartsRpc", "Rebooting now");
+        ESP_LOGW("CogitorRpc", "Rebooting now");
         esp_restart();
     }
 
@@ -240,9 +239,9 @@ private:
         return v;
     }
 
-    static void onEcho(crearts::iot::IotService& iot,
+    static void onEcho(cogitor::iot::IotService& iot,
                        uint32_t id,
-                       const crearts::iot::RpcParams& p,
+                       const cogitor::iot::RpcParams& p,
                        void*)
     {
         std::string msg;
@@ -250,15 +249,15 @@ private:
             iot.respondRpc(id, 400, "missing params.msg");
             return;
         }
-        ESP_LOGW("CreartsRpc", "Echo: %s", msg.c_str());
+        ESP_LOGW("CogitorRpc", "Echo: %s", msg.c_str());
         cJSON* data = cJSON_CreateObject();
         cJSON_AddStringToObject(data, "msg", msg.c_str());
         replyJson(iot, id, 0, "ok", data);
     }
 
-    static void onLedAttach(crearts::iot::IotService& iot,
+    static void onLedAttach(cogitor::iot::IotService& iot,
                             uint32_t id,
-                            const crearts::iot::RpcParams& p,
+                            const cogitor::iot::RpcParams& p,
                             void*)
     {
         auto* strip = leds();
@@ -288,9 +287,9 @@ private:
         replyJson(iot, id, 0, "ok", data);
     }
 
-    static void onLedDetach(crearts::iot::IotService& iot,
+    static void onLedDetach(cogitor::iot::IotService& iot,
                             uint32_t id,
-                            const crearts::iot::RpcParams& p,
+                            const cogitor::iot::RpcParams& p,
                             void*)
     {
         auto* strip = leds();
@@ -312,9 +311,9 @@ private:
         replyJson(iot, id, 0, "ok", data);
     }
 
-    static void onLedList(crearts::iot::IotService& iot,
+    static void onLedList(cogitor::iot::IotService& iot,
                           uint32_t id,
-                          const crearts::iot::RpcParams&,
+                          const cogitor::iot::RpcParams&,
                           void*)
     {
         auto* strip = leds();
@@ -336,9 +335,9 @@ private:
         replyJson(iot, id, 0, "ok", data);
     }
 
-    static void onSetLed(crearts::iot::IotService& iot,
+    static void onSetLed(cogitor::iot::IotService& iot,
                          uint32_t id,
-                         const crearts::iot::RpcParams& p,
+                         const cogitor::iot::RpcParams& p,
                          void*)
     {
         auto* strip = leds();
@@ -372,7 +371,7 @@ private:
             r = g = b = 0;
         }
 
-        ESP_LOGD("CreartsRpc", "set_led gpio=%d offset=%d length=%d rgb=%d,%d,%d",
+        ESP_LOGD("CogitorRpc", "set_led gpio=%d offset=%d length=%d rgb=%d,%d,%d",
                  gpio, offset, length, r, g, b);
 
         if (!strip->setRange(gpio, static_cast<uint16_t>(offset), static_cast<uint16_t>(length),
@@ -393,9 +392,9 @@ private:
         replyJson(iot, id, 0, "ok", data);
     }
 
-    static void onReboot(crearts::iot::IotService& iot,
+    static void onReboot(cogitor::iot::IotService& iot,
                          uint32_t id,
-                         const crearts::iot::RpcParams& p,
+                         const cogitor::iot::RpcParams& p,
                          void*)
     {
         int delayMs = p.getInt("delayMs", 500);
@@ -408,9 +407,9 @@ private:
                     5, nullptr);
     }
 
-    static void onFactoryReset(crearts::iot::IotService& iot,
+    static void onFactoryReset(cogitor::iot::IotService& iot,
                                uint32_t id,
-                               const crearts::iot::RpcParams& p,
+                               const cogitor::iot::RpcParams& p,
                                void*)
     {
         bool confirm = false;
@@ -418,7 +417,7 @@ private:
             iot.respondRpc(id, 400, "params.confirm=true required");
             return;
         }
-        const esp_err_t err = embed::factoryResetSettings();
+        const esp_err_t err = cogitor::iot::factoryResetSettings();
         if (err != ESP_OK) {
             iot.respondRpc(id, 500, esp_err_to_name(err));
             return;
@@ -427,9 +426,9 @@ private:
         embed::scheduleReboot(800);
     }
 
-    static void onConfigPortal(crearts::iot::IotService& iot,
+    static void onConfigPortal(cogitor::iot::IotService& iot,
                                uint32_t id,
-                               const crearts::iot::RpcParams&,
+                               const cogitor::iot::RpcParams&,
                                void*)
     {
         const esp_err_t err = embed::requestConfigPortal();
@@ -441,9 +440,9 @@ private:
         embed::scheduleReboot(800);
     }
 
-    static void onImportCredentials(crearts::iot::IotService& iot,
+    static void onImportCredentials(cogitor::iot::IotService& iot,
                                     uint32_t id,
-                                    const crearts::iot::RpcParams& p,
+                                    const cogitor::iot::RpcParams& p,
                                     void*)
     {
         std::string json;
@@ -451,7 +450,7 @@ private:
             iot.respondRpc(id, 400, "params.json required (credentials object as string)");
             return;
         }
-        const esp_err_t err = embed::importCredentialsJson(json.c_str());
+        const esp_err_t err = cogitor::iot::importCredentialsJson(json.c_str());
         if (err == ESP_ERR_INVALID_ARG) {
             iot.respondRpc(id, 400, "invalid credentials JSON");
             return;
@@ -464,14 +463,14 @@ private:
         embed::scheduleReboot(800);
     }
 
-    static void onExportCredentials(crearts::iot::IotService& iot,
+    static void onExportCredentials(cogitor::iot::IotService& iot,
                                     uint32_t id,
-                                    const crearts::iot::RpcParams& p,
+                                    const cogitor::iot::RpcParams& p,
                                     void*)
     {
         const bool secrets = p.getBool("secrets", false);
         char buf[2048]{};
-        const esp_err_t err = embed::exportCredentialsJson(buf, sizeof(buf), secrets);
+        const esp_err_t err = cogitor::iot::exportCredentialsJson(buf, sizeof(buf), secrets);
         if (err != ESP_OK) {
             iot.respondRpc(id, 500, esp_err_to_name(err));
             return;
@@ -479,9 +478,9 @@ private:
         iot.respondRpc(id, 0, "ok", buf);
     }
 
-    static void onOtaRollback(crearts::iot::IotService& iot,
+    static void onOtaRollback(cogitor::iot::IotService& iot,
                               uint32_t id,
-                              const crearts::iot::RpcParams& p,
+                              const cogitor::iot::RpcParams& p,
                               void*)
     {
         bool confirm = false;
@@ -569,10 +568,11 @@ private:
 // ── app_main ────────────────────────────────────────────────────────────
 
 extern "C" void app_main() {
-    ESP_LOGI(TAG, "embed-framework → Crearts IoT Platform");
+    ESP_LOGI(TAG, "embed-framework → Cogitor IoT Platform");
 
     // GPIO 0 is a strapping pin: held at chip RESET → UART download mode.
     // Watch BOOT while the app runs; also accept a hold already in progress.
+    cogitor::iot::installFactoryResetHandler();
     embed::startFactoryResetGpioWatch();
 
     if (embed::NvsStore::initFlash() != ESP_OK) {
@@ -586,7 +586,7 @@ extern "C" void app_main() {
     if (rstBurst || gpioHold) {
         ESP_LOGW(TAG, "factory reset — wiping fctry + config portal (rst=%d gpio=%d)",
                  rstBurst ? 1 : 0, gpioHold ? 1 : 0);
-        embed::factoryResetSettings();
+        cogitor::iot::factoryResetSettings();
     }
 
     // Before TLS / services — crash-loop here still increments and can roll back.
@@ -612,26 +612,26 @@ extern "C" void app_main() {
     const bool portal = embed::needsConfigPortal();
 
     const auto topicStyle =
-#ifdef CONFIG_EMBED_CREARTS_IOT_TOPIC_SHORT
-        crearts::iot::TopicStyle::Short;
+#ifdef CONFIG_EMBED_COGITOR_IOT_TOPIC_SHORT
+        cogitor::iot::TopicStyle::Short;
 #else
-        crearts::iot::TopicStyle::Full;
+        cogitor::iot::TopicStyle::Full;
 #endif
 
-    static std::optional<crearts::iot::CreartsCredentials> creartsCreds;
+    static std::optional<cogitor::iot::CogitorCredentials> cogitorCreds;
     if (!portal) {
-        creartsCreds = crearts::iot::loadOrSeedCredentials(
-            CONFIG_EMBED_CREARTS_IOT_PRODUCT_ID,
-            CONFIG_EMBED_CREARTS_IOT_DEVICE_ID,
-            CONFIG_EMBED_CREARTS_IOT_HOST,
-            CONFIG_EMBED_CREARTS_IOT_ACCESS_TOKEN,
+        cogitorCreds = cogitor::iot::loadOrSeedCredentials(
+            CONFIG_EMBED_COGITOR_IOT_PRODUCT_ID,
+            CONFIG_EMBED_COGITOR_IOT_DEVICE_ID,
+            CONFIG_EMBED_COGITOR_IOT_HOST,
+            CONFIG_EMBED_COGITOR_IOT_ACCESS_TOKEN,
             topicStyle,
-#ifdef CONFIG_EMBED_CREARTS_IOT_USE_TLS
+#ifdef CONFIG_EMBED_COGITOR_IOT_USE_TLS
             true,
 #else
             false,
 #endif
-            static_cast<uint16_t>(CONFIG_EMBED_CREARTS_IOT_PORT));
+            static_cast<uint16_t>(CONFIG_EMBED_COGITOR_IOT_PORT));
     }
 
     auto& registry = embed::ServiceRegistry::instance();
@@ -640,26 +640,26 @@ extern "C" void app_main() {
         wifi->enableSoftAp();
     }
     registry.createService<embed::MetricsService>();
-    registry.createService<embed::ConfigPortalService>();
+    registry.createService<cogitor::iot::ConfigPortalService>();
 
-    const bool mqttOk = !portal && creartsCreds && creartsCreds->isValid();
+    const bool mqttOk = !portal && cogitorCreds && cogitorCreds->isValid();
     if (mqttOk) {
-        ESP_LOGI(TAG, "Crearts MQTT client_id=%s uri=%s style=%s",
-                 creartsCreds->clientId(), creartsCreds->brokerUri(),
-                 creartsCreds->topicStyle() == crearts::iot::TopicStyle::Short
+        ESP_LOGI(TAG, "Cogitor MQTT client_id=%s uri=%s style=%s",
+                 cogitorCreds->clientId(), cogitorCreds->brokerUri(),
+                 cogitorCreds->topicStyle() == cogitor::iot::TopicStyle::Short
                      ? "short"
                      : "full");
-        registry.createService<embed::MqttService>(*creartsCreds);
-        registry.createService<crearts::iot::IotService>(*creartsCreds);
-        registry.createService<crearts::iot::MetricsTelemetryBridge>();
-        registry.createService<crearts::iot::OtaService>();
-        registry.createService<crearts::iot::NtpService>();
-        registry.createService<crearts::iot::LogService>();
-        registry.createService<crearts::iot::DeviceInfo>();
-        registry.createService<CreartsRpcDemo>();
+        registry.createService<embed::MqttService>(*cogitorCreds);
+        registry.createService<cogitor::iot::IotService>(*cogitorCreds);
+        registry.createService<cogitor::iot::MetricsTelemetryBridge>();
+        registry.createService<cogitor::iot::OtaService>();
+        registry.createService<cogitor::iot::NtpService>();
+        registry.createService<cogitor::iot::LogService>();
+        registry.createService<cogitor::iot::DeviceInfo>();
+        registry.createService<CogitorRpcDemo>();
     } else if (!portal) {
         ESP_LOGW(TAG,
-                 "Crearts creds missing — config HTTP on STA; "
+                 "Cogitor creds missing — config HTTP on STA; "
                  "or hold BOOT to open SoftAP portal");
     }
 
@@ -677,11 +677,11 @@ extern "C" void app_main() {
     if (portal) {
         ESP_LOGW(TAG, "CONFIG PORTAL AP=%s → http://192.168.4.1/", wifi->apSsid());
     } else if (mqttOk) {
-        ESP_LOGI(TAG, "running — WiFi+MQTT → Crearts (%.*s.%.*s)",
-                 static_cast<int>(creartsCreds->productId().size()),
-                 creartsCreds->productId().data(),
-                 static_cast<int>(creartsCreds->deviceId().size()),
-                 creartsCreds->deviceId().data());
+        ESP_LOGI(TAG, "running — WiFi+MQTT → Cogitor (%.*s.%.*s)",
+                 static_cast<int>(cogitorCreds->productId().size()),
+                 cogitorCreds->productId().data(),
+                 static_cast<int>(cogitorCreds->deviceId().size()),
+                 cogitorCreds->deviceId().data());
     }
 
     while (true) {

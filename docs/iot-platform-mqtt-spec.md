@@ -410,7 +410,7 @@ Default RPC timeout: **30 s** (both directions). Caller treats missing response 
 
 ### Built-in discovery: `rpc-list`
 
-Every firmware that uses `CreartsIotService::rpc()` must implement **`rpc-list`** (alias `rpc_list`). No params. Returns the catalog of methods available **on this device build**.
+Every firmware that uses `CogitorIotService::rpc()` must implement **`rpc-list`** (alias `rpc_list`). No params. Returns the catalog of methods available **on this device build**.
 
 Request:
 ```json
@@ -825,7 +825,7 @@ Do **not** use a direct exchange for device downlink when speaking MQTT — publ
 - [ ] LWT on status topic (`…/up/status` or `v1/s`); no app-level online/offline publish
 - [ ] Telemetry / events / attributes / RPC builders (`id` in body)
 - [ ] Subscribe `down/#` on connect
-- [x] RPC handler registry (`CreartsIotService::rpc()`) + built-in `rpc-list` + echo `id`
+- [x] RPC handler registry (`CogitorIotService::rpc()`) + built-in `rpc-list` + echo `id`
 - [ ] NTP with body `id` + numeric timestamps
 - [ ] OTA state machine (query, update, progress, cancel, verify sha256/sign)
 - [ ] Logs reporter

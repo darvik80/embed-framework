@@ -18,11 +18,11 @@ foreach ($listen in $ports) {
     netsh interface portproxy delete v4tov4 listenaddress=127.0.0.1 listenport=$listen | Out-Null
 }
 
-Get-NetFirewallRule -DisplayName "Crearts mqtt*" -ErrorAction SilentlyContinue |
+Get-NetFirewallRule -DisplayName "Cogitor mqtt*" -ErrorAction SilentlyContinue |
     Remove-NetFirewallRule -ErrorAction SilentlyContinue
 try {
     Get-NetFirewallHyperVRule -ErrorAction SilentlyContinue |
-        Where-Object { $_.DisplayName -like "Crearts MQTT*" } |
+        Where-Object { $_.DisplayName -like "Cogitor MQTT*" } |
         ForEach-Object { Remove-NetFirewallHyperVRule -Name $_.Name -ErrorAction SilentlyContinue }
 } catch {}
 

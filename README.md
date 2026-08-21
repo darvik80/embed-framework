@@ -1,6 +1,6 @@
 # embed-framework
 
-C++20 service framework for **ESP-IDF ≥ 5.5** (ESP32-S3): fixed-size `ServiceRegistry`, Signal/Slot on a dedicated `esp_event` loop, CRTP state machines, and cloud device SDKs (Crearts IoT, Alibaba Cloud, ThingsBoard).
+C++20 service framework for **ESP-IDF ≥ 5.5** (ESP32-S3): fixed-size `ServiceRegistry`, Signal/Slot on a dedicated `esp_event` loop, CRTP state machines, and cloud device SDKs (Cogitor IoT, Alibaba Cloud, ThingsBoard).
 
 **[Developer Manual](docs/embed-framework-manual.md)** — comprehensive guide covering all components, API reference, code examples, and iot-platform-go integration.
 
@@ -8,21 +8,21 @@ C++20 service framework for **ESP-IDF ≥ 5.5** (ESP32-S3): fixed-size `ServiceR
 
 ```bash
 idf.py set-target esp32s3
-idf.py menuconfig   # Embed Framework → WiFi + Crearts IoT
+idf.py menuconfig   # Embed Framework → WiFi + Cogitor IoT
 idf.py build flash monitor
 ```
 
 **PSRAM:** `sdkconfig.defaults` assumes **octal** PSRAM (ESP32-S3-WROOM-1-**N8R8** / Freenove CAM). `quad_psram: chip is not connected, or wrong PSRAM line mode` + `Failed to init external RAM!` means the image was built for **quad** (or the module has no PSRAM). That abort is in `cpu_start` — **before** `app_main`, so firmware crash-loop rollback never runs. Fix: Component config → ESP PSRAM → **Octal** for R8, **Quad** for R2, or disable SPIRAM if there is no `R` in the module name. `CONFIG_SPIRAM_IGNORE_NOTFOUND` keeps the chip booting if the mode is wrong.
 
-**Secrets and site config:** first boot seeds NVS partition **`fctry`** from local `sdkconfig` (gitignored). After that OTA / USB flash keep WiFi + Crearts token on device. Commit only `sdkconfig.defaults` (no access tokens).
+**Secrets and site config:** first boot seeds NVS partition **`fctry`** from local `sdkconfig` (gitignored). After that OTA / USB flash keep WiFi + Cogitor token on device. Commit only `sdkconfig.defaults` (no access tokens).
 
 | Menuconfig path | Keys |
 |-----------------|------|
 | Embed Framework — WiFi | `CONFIG_EMBED_WIFI_*` |
-| Embed Framework — Crearts IoT | `CONFIG_EMBED_CREARTS_IOT_*` (product, device, host, **token**, TLS, topics) |
+| Embed Framework — Cogitor IoT | `CONFIG_EMBED_COGITOR_IOT_*` (product, device, host, **token**, TLS, topics) |
 | Embed Framework — MQTT / Metrics | `CONFIG_EMBED_MQTT_*`, `CONFIG_EMBED_METRICS_*` |
 
-Demo `main/` wires **Crearts** by default: WiFi → MQTT → `CreartsIotService` (+ metrics bridge, `CreartsDeviceInfo` attributes, RPC demo).
+Demo `main/` wires **Cogitor** by default: WiFi → MQTT → `CogitorIotService` (+ metrics bridge, `CogitorDeviceInfo` attributes, RPC demo).
 
 ## Architecture
 
@@ -31,7 +31,7 @@ main/                      app wiring (services, Kconfig → NVS seed → creden
 components/embed/          Service, Registry, EventLoop, Signal/Slot, StateMachine
 components/embed_core/     WifiService, MqttService, MetricsService, NvsStore
 components/embed_extra/    Camera, MJPEG, WS2812 LED strip
-components/crearts_iot/    Crearts IoT Platform device SDK (protocol v1)
+components/cogitor_iot/    Cogitor IoT Platform device SDK (protocol v1)
 components/alicloud_*      Alibaba IoT / OSS (+ camera frame upload)
 components/thingsboard/    ThingsBoard MQTT device API
 deploy/                    RabbitMQ + Node-RED lab stack
@@ -67,7 +67,7 @@ Prefer POD and `embed::string<N>`. Do **not** put owning buffers (camera frames,
 | `EMBED_MAX_EVENT_DATA_SIZE` | 1600 | Max `Message` size |
 | `EMBED_THREAD_SAFE` | 1 | Mutexes on registry / connection pool |
 
-## Crearts IoT (default demo path)
+## Cogitor IoT (default demo path)
 
 Protocol: [docs/iot-platform-mqtt-spec.md](docs/iot-platform-mqtt-spec.md) (`v1`).
 
@@ -83,22 +83,22 @@ Attributes: **reported** from device on connect; **desired** from dashboard via 
 
 ```cpp
 embed::NvsStore::initFlash();
-static auto creds = crearts::iot::loadOrSeedCredentials(
-    CONFIG_EMBED_CREARTS_IOT_PRODUCT_ID,
-    CONFIG_EMBED_CREARTS_IOT_DEVICE_ID,
-    CONFIG_EMBED_CREARTS_IOT_HOST,
-    CONFIG_EMBED_CREARTS_IOT_ACCESS_TOKEN,
+static auto creds = cogitor::iot::loadOrSeedCredentials(
+    CONFIG_EMBED_COGITOR_IOT_PRODUCT_ID,
+    CONFIG_EMBED_COGITOR_IOT_DEVICE_ID,
+    CONFIG_EMBED_COGITOR_IOT_HOST,
+    CONFIG_EMBED_COGITOR_IOT_ACCESS_TOKEN,
     /* TopicStyle / TLS / port from Kconfig — used only if NVS empty */);
 ```
 
 Lab broker + Node-RED: [deploy/README.md](deploy/README.md).  
-SDK details: [components/crearts_iot/README.md](components/crearts_iot/README.md) · [Developer Manual §7](docs/embed-framework-manual.md#7-crearts_iot--crearts-iot-platform-sdk).
+SDK details: [components/cogitor_iot/README.md](components/cogitor_iot/README.md) · [Developer Manual §7](docs/embed-framework-manual.md#7-cogitor_iot--cogitor-iot-platform-sdk).
 
 Until the platform provisions broker users, create the MQTT user manually:
 
 ```bash
-docker exec crearts-rabbitmq rabbitmqctl add_user 'home.esp32-s3' '<access_token>'
-docker exec crearts-rabbitmq rabbitmqctl set_permissions -p / 'home.esp32-s3' '.*' '.*' '.*'
+docker exec cogitor-rabbitmq rabbitmqctl add_user 'home.esp32-s3' '<access_token>'
+docker exec cogitor-rabbitmq rabbitmqctl set_permissions -p / 'home.esp32-s3' '.*' '.*' '.*'
 ```
 
 Point the device at the **Go platform** MQTT broker (**LAN IP**, not `localhost`). Do not use `fix-podman-ports.ps1` unless you are still running the legacy Podman RabbitMQ stack.
@@ -110,7 +110,7 @@ Point the device at the **Go platform** MQTT broker (**LAN IP**, not `localhost`
 | [embed](components/embed/README.md) | Core framework |
 | [embed_core](components/embed_core/README.md) | WiFi, MQTT, metrics |
 | embed_extra | Camera / MJPEG / WS2812 LED strip |
-| [crearts_iot](components/crearts_iot/README.md) | Crearts IoT Platform device SDK |
+| [cogitor_iot](components/cogitor_iot/README.md) | Cogitor IoT Platform device SDK |
 | alicloud_iot | Alink modules (things, OTA, NTP, …) |
 | alicloud_oss | OSS client + `OssService` + `OssUploadService` |
 | [thingsboard](components/thingsboard/README.md) | ThingsBoard MQTT device API |
@@ -125,11 +125,11 @@ Incoming payloads larger than `MqttMessageReceived::payload` capacity (1400) are
 
 ## OTA
 
-Factory-only default table cannot OTA. Use `partitions_ota.csv` and `CreartsOtaService` — see [docs/ota.md](docs/ota.md). Device identity is in **`fctry`** NVS (survives OTA and `idf.py flash`).
+Factory-only default table cannot OTA. Use `partitions_ota.csv` and `CogitorOtaService` — see [docs/ota.md](docs/ota.md). Device identity is in **`fctry`** NVS (survives OTA and `idf.py flash`).
 
 ## Config portal / factory reset
 
-WiFi + Crearts token live in `fctry`. To **force-update** them:
+WiFi + Cogitor token live in `fctry`. To **force-update** them:
 
 | Trigger | Effect |
 |---------|--------|
@@ -152,7 +152,7 @@ Credentials JSON (web import / RPC `import_credentials` / download):
 ```json
 {
   "wifi": { "ssid": "home", "password": "secret" },
-  "crearts": {
+  "cogitor": {
     "product": "home",
     "device": "esp32-s3",
     "host": "192.168.1.100",
@@ -192,9 +192,9 @@ See [docs/ci.md](docs/ci.md). Workflows: `.gitea/workflows/ci.yml` (mirrored und
 |-----|----------|
 | [**Developer Manual**](docs/embed-framework-manual.md) | Full guide: all components, API, examples, iot-platform-go integration |
 | [docs/architecture.md](docs/architecture.md) | Layering, events, ownership |
-| [docs/iot-platform-mqtt-spec.md](docs/iot-platform-mqtt-spec.md) | Crearts MQTT protocol v1 |
+| [docs/iot-platform-mqtt-spec.md](docs/iot-platform-mqtt-spec.md) | Cogitor MQTT protocol v1 |
 | [docs/iot-platform-service-prompt.md](docs/iot-platform-service-prompt.md) | Platform (Go/React/Node-RED) design prompt |
-| [docs/iot-platform-implementation-prompt.md](docs/iot-platform-implementation-prompt.md) | Device SDK notes (implemented as `crearts_iot`) |
+| [docs/iot-platform-implementation-prompt.md](docs/iot-platform-implementation-prompt.md) | Device SDK notes (implemented as `cogitor_iot`) |
 | [deploy/README.md](deploy/README.md) | RabbitMQ + Node-RED lab; Podman/Synology tips |
 | [docs/ota.md](docs/ota.md) | OTA partitions |
 | [docs/testing.md](docs/testing.md) / [docs/ci.md](docs/ci.md) | Tests & CI |

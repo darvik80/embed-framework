@@ -1,8 +1,8 @@
 # OTA
 
-## Crearts IoT (`v1/me/o/upd`)
+## Cogitor IoT (`v1/me/o/upd`)
 
-`CreartsOtaService` subscribes to `CreartsIotService::onOtaUpdate` / `onOtaCancel`.
+`CogitorOtaService` subscribes to `CogitorIotService::onOtaUpdate` / `onOtaCancel`.
 
 Payload (HTTPS):
 
@@ -52,7 +52,7 @@ Lab HTTP (`http://…`) is accepted; HTTPS uses the CRT bundle. MQTT chunk strea
 
 ## Device credentials (`fctry`)
 
-WiFi SSID/password and Crearts product/device/host/token live in NVS partition **`fctry`** (`0x7FC000`, 16 KB) — same offset in `partitions.csv` and `partitions_ota.csv`.
+WiFi SSID/password and Cogitor product/device/host/token live in NVS partition **`fctry`** (`0x7FC000`, 16 KB) — same offset in `partitions.csv` and `partitions_ota.csv`.
 
 - First boot: seed from Kconfig (`sdkconfig`) and persist.
 - Later boots / OTA / `idf.py flash`: NVS wins (Kconfig token may be empty in CI builds).

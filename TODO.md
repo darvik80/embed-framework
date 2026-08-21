@@ -32,15 +32,15 @@ Prioritized from architecture review (2026-07-29). Skills: `.cursor/skills/embed
 - [ ] **Public headers** — Move `alicloud_common` / low-level OSS headers from `src/` to `include/`.
 - [ ] **C++ dialect** — Unify on C++20 for new code.
 - [x] **Dual MQTT reconnect** — esp-mqtt auto-reconnect disabled; SM + timer is sole policy.
-- [x] **sdkconfig.defaults** — Site WiFi / Crearts token stay out of defaults; token empty in defaults, local `sdkconfig` gitignored.
-- [x] **fctry NVS** — WiFi + Crearts identity persist across OTA / `idf.py flash`; Kconfig seeds first boot.
+- [x] **sdkconfig.defaults** — Site WiFi / Cogitor token stay out of defaults; token empty in defaults, local `sdkconfig` gitignored.
+- [x] **fctry NVS** — WiFi + Cogitor identity persist across OTA / `idf.py flash`; Kconfig seeds first boot.
 - [x] **Config portal** — SoftAP + HTTP WiFi/MQTT setup; GPIO/RPC factory reset does not re-seed Kconfig.
 - [ ] **main.cpp** — Split demo vs product profile.
-- [x] **Crearts IoT docs** — Root README, architecture, crearts_iot + deploy READMEs aligned with auth + Kconfig.
+- [x] **Cogitor IoT docs** — Root README, architecture, cogitor_iot + deploy READMEs aligned with auth + Kconfig.
 ## P4 — Docs & tests
 
-- [x] **README** + architecture / testing / OTA / CI docs + component READMEs for `embed` / `embed_core` / `crearts_iot`.
+- [x] **README** + architecture / testing / OTA / CI docs + component READMEs for `embed` / `embed_core` / `cogitor_iot`.
 - [x] **Unity example** — `host_test/` (Linux, no flash) + `test_apps/embed_unity` + `components/embed/test/`.
 - [x] **Gitea CI** — `host-tests` job runs Unity; firmware jobs use `tools/ci/idf-docker.sh`.
 - [ ] Expand host coverage (types, StateMachine with mocks).
-- [ ] Device smoke — WiFi/MQTT SM, OTA dry-run / Crearts connect.
+- [ ] Device smoke — WiFi/MQTT SM, OTA dry-run / Cogitor connect.

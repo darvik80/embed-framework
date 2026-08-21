@@ -1,11 +1,11 @@
-# Crearts IoT Platform Service — Implementation Prompt
+# Cogitor IoT Platform Service — Implementation Prompt
 
 ## Goal
 
 Build a self-hosted **IoT platform backend + dashboard** that speaks the device MQTT protocol defined in:
 
 - `docs/iot-platform-mqtt-spec.md` (protocol **v1**)
-- Device SDK: `components/crearts_iot/` (ESP-IDF)
+- Device SDK: `components/cogitor_iot/` (ESP-IDF)
 
 Stack (fixed):
 
@@ -17,7 +17,7 @@ Stack (fixed):
 | Broker + Node-RED | `deploy/docker-compose.yml` (RabbitMQ MQTT + Node-RED) |
 
 
-Deliver as a new top-level project (suggested path): `platform/` (or separate repo `crearts-iot-platform`). Do **not** put Go/React sources inside ESP-IDF `components/`.
+Deliver as a new top-level project (suggested path): `platform/` (or separate repo `cogitor-iot-platform`). Do **not** put Go/React sources inside ESP-IDF `components/`.
 
 ---
 
@@ -58,7 +58,7 @@ Correlation: JSON field `"id"` (uint32), **not** in the topic path. RPC success 
 
 1. Operator registers device in dashboard → platform generates **access token**
 2. Token shown **once**; stored hashed; RabbitMQ user provisioned (`user=token`, `pass=token`)
-3. Device firmware uses `CreartsCredentials::createAccessToken(product, device, host, token)`
+3. Device firmware uses `CogitorCredentials::createAccessToken(product, device, host, token)`
 4. MQTT CONNECT: `username={product}.{device}`, `password=token`, `client_id={product}.{device}`
 5. Rotate token from dashboard invalidates the old broker user
 
@@ -71,7 +71,7 @@ Shared admin broker credentials are for platform ingest / lab only — not for d
 ```
 ┌─────────────┐   MQTT    ┌──────────────┐   AMQP/MQTT   ┌─────────────────┐
 │ ESP devices │ ────────► │   RabbitMQ   │ ◄──────────── │  platform-api   │
-│ crearts_iot │ ◄──────── │  :1883/15672 │               │  (Go)           │
+│ cogitor_iot │ ◄──────── │  :1883/15672 │               │  (Go)           │
 └─────────────┘           └──────────────┘               │  - ingest       │
                                 │                        │  - REST / WS    │
                                 │ platform/v1/…          │  - RPC/OTA/NTP  │
@@ -238,7 +238,7 @@ Auth: JWT (dashboard login) + optional Bearer API tokens.
 - List/filter (status, product, search)
 - **Create device** → generate access token → return **once** in API response + dashboard copy UI
   - Payload for firmware: `product_id`, `device_id`, `access_token`, broker host, topic style
-  - Example snippet: `CreartsCredentials::createAccessToken(product, device, host, token, …)`
+  - Example snippet: `CogitorCredentials::createAccessToken(product, device, host, token, …)`
 - Rotate token (invalidate old, show new once)
 - Update metadata, disable device (revoke broker user)
 - Delete
@@ -321,7 +321,7 @@ UI must be practical, not a generic AI “purple SaaS” template. Prefer a dens
 3. Platform generates **access token** (high entropy), hashes it, creates RabbitMQ MQTT user `username={product}.{device}` / `password=token` with ACL for that device
 4. Dashboard shows one-time panel:
    - Broker URI, `client_id` (= username), **access token** (password), copy buttons
-   - Firmware snippet using `CreartsCredentials::createAccessToken(...)`
+   - Firmware snippet using `CogitorCredentials::createAccessToken(...)`
 5. Device appears `offline` until the platform sees an MQTT session; unclean drop fires LWT on status topic
 6. Token cannot be retrieved later — only rotated
 
@@ -369,9 +369,9 @@ Beyond “devices + metrics + properties”, the platform is incomplete without:
 HTTP_ADDR=:8080
 SQLITE_PATH=./data/platform.db
 MQTT_BROKER=tcp://localhost:1883
-MQTT_USERNAME=crearts
-MQTT_PASSWORD=crearts
-MQTT_CLIENT_ID=crearts-platform
+MQTT_USERNAME=cogitor
+MQTT_PASSWORD=cogitor
+MQTT_CLIENT_ID=cogitor-platform
 JWT_SECRET=...
 TELEMETRY_RETENTION_DAYS=30
 RPC_DEFAULT_TIMEOUT_MS=30000
@@ -425,12 +425,12 @@ Compose: platform service `depends_on: rabbitmq` healthy; mount volume for SQLit
 
 ## Acceptance criteria
 
-- [ ] ESP device with `crearts_iot` connects to stack from `deploy/` and appears online in dashboard
+- [ ] ESP device with `cogitor_iot` connects to stack from `deploy/` and appears online in dashboard
 - [ ] Telemetry from device shows on charts within ~1–2s (WS)
 - [ ] Desired property change in UI reaches device (`v1/a/upd` or full topic)
 - [ ] RPC reboot (or echo) round-trip works with `id` in body
 - [ ] NTP request from device gets valid response
-- [ ] Creating a device yields a one-time access token usable by `CreartsCredentials::createAccessToken`
+- [ ] Creating a device yields a one-time access token usable by `CogitorCredentials::createAccessToken`
 - [ ] Device connects with token; unknown token is rejected
 - [ ] Token rotate invalidates the previous credential
 - [ ] SQLite survives restart; retention does not explode disk in lab
@@ -557,7 +557,7 @@ NODERED_URL=http://localhost:1880
 ## References
 
 - MQTT spec: `docs/iot-platform-mqtt-spec.md`
-- Device SDK: `components/crearts_iot/README.md`
+- Device SDK: `components/cogitor_iot/README.md`
 - Stack: `deploy/README.md` (`docker compose up` → RabbitMQ + Node-RED)
 - Inspired UX: ThingsBoard device pages (list, telemetry, attributes, RPC) — but follow **our** topic/payload contract, not TB APIs
 - Automation UX: Node-RED editor for flows/CEP; platform owns devices and command execution

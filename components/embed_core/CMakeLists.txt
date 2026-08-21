@@ -5,7 +5,6 @@ idf_component_register(
         "src/metrics_service.cpp"
         "src/nvs_store.cpp"
         "src/device_settings.cpp"
-        "src/config_portal_service.cpp"
         "src/firmware_slot.cpp"
     INCLUDE_DIRS
         "include"
@@ -21,7 +20,6 @@ idf_component_register(
         esp_system
         log
         freertos
-        esp_http_server
         esp_driver_gpio
         app_update
     PRIV_REQUIRES

@@ -1,4 +1,0 @@
-version: "1.0.0"
-description: "Crearts IoT Platform MQTT device SDK for embed-framework"
-dependencies:
-  idf: ">=5.5"

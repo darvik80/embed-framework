@@ -3,4 +3,3 @@ description: Core services (WiFi, MQTT, Metrics) for the embed framework
 dependencies:
     idf: ">=5.5"
     espressif/mqtt: "*"
-    espressif/cjson: "^1.7.19"

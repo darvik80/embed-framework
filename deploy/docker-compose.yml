@@ -1,7 +1,7 @@
 services:
   rabbitmq:
     image: rabbitmq:4.0-management
-    container_name: crearts-rabbitmq
+    container_name: cogitor-rabbitmq
     hostname: rabbitmq
     restart: unless-stopped
     ports:
@@ -10,8 +10,8 @@ services:
       - "1883:1883"     # MQTT
       - "15675:15675"   # MQTT over WebSockets
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-crearts}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-crearts}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-cogitor}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-cogitor}
       RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
       # Stable Erlang node name (Synology/Container Manager hostnames vary)
       RABBITMQ_NODENAME: rabbit@rabbitmq
@@ -28,7 +28,7 @@ services:
 
   nodered:
     image: nodered/node-red:4.0
-    container_name: crearts-nodered
+    container_name: cogitor-nodered
     hostname: nodered
     restart: unless-stopped
     depends_on:
@@ -37,7 +37,7 @@ services:
     ports:
       - "1880:1880"     # Node-RED editor  http://localhost:1880
     environment:
-      NODERED_CREDENTIAL_SECRET: ${NODERED_CREDENTIAL_SECRET:-crearts-nodered-dev}
+      NODERED_CREDENTIAL_SECRET: ${NODERED_CREDENTIAL_SECRET:-cogitor-nodered-dev}
     volumes:
       - nodered_data:/data
       - ./nodered/settings.js:/data/settings.js:ro

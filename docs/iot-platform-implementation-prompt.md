@@ -2,12 +2,12 @@
 
 ## Status
 
-Device SDK is implemented as **`components/crearts_iot/`** (not a separate `iot_platform/` tree).
+Device SDK is implemented as **`components/cogitor_iot/`** (not a separate `iot_platform/` tree).
 Use this document when extending the SDK or aligning a new product app with protocol **v1**.
 
 Canonical references:
 - Spec: `docs/iot-platform-mqtt-spec.md`
-- SDK README: `components/crearts_iot/README.md`
+- SDK README: `components/cogitor_iot/README.md`
 - Platform (Go/React) prompt: `docs/iot-platform-service-prompt.md`
 - Lab broker: `deploy/README.md`
 
@@ -18,7 +18,7 @@ You are implementing or extending a standardized IoT platform integration for an
 ## Existing Codebase
 
 Reference integrations:
-- `components/crearts_iot/` — **Crearts (current / preferred)**
+- `components/cogitor_iot/` — **Cogitor (current / preferred)**
 - `components/thingsboard/` — ThingsBoard
 - `components/alicloud_iot/` — Alibaba Cloud IoT
 
@@ -28,23 +28,23 @@ Shared patterns:
 - Service (`embed::Service`)
 - JSON builders for telemetry / attributes / RPC
 - Signal/Slot wiring
-- Kconfig (`CONFIG_EMBED_CREARTS_IOT_*`) for host / ids / token — never hardcode tokens in source
+- Kconfig (`CONFIG_EMBED_COGITOR_IOT_*`) for host / ids / token — never hardcode tokens in source
 
 ## Task (historical / extension)
 
-Originally: create a device SDK per the v1 spec. **Done** as `crearts_iot`.
+Originally: create a device SDK per the v1 spec. **Done** as `cogitor_iot`.
 When adding features, keep API and topics aligned with the spec and the checklist below.
 
 ### Requirements (contract)
 
 1. **Credentials Provider**
-   - Primary: `CreartsCredentials::createAccessToken(product, device, host, token, …)`
+   - Primary: `CogitorCredentials::createAccessToken(product, device, host, token, …)`
    - MQTT username = `{product}.{device}`, password = token, client id = `{product}.{device}`
    - LWT on status topic; optional TLS
    - Lab fallback: `createBasic(...)`
-   - App wiring: values from `CONFIG_EMBED_CREARTS_IOT_*` (menuconfig / local `sdkconfig`)
+   - App wiring: values from `CONFIG_EMBED_COGITOR_IOT_*` (menuconfig / local `sdkconfig`)
 
-2. **Topic Builder** (`topics.hpp` / `topics.cpp` under `crearts_iot`)
+2. **Topic Builder** (`topics.hpp` / `topics.cpp` under `cogitor_iot`)
    - Mirror ThingsBoard `TopicStyle` enum: `Full` | `Short`
    - **Full:** `iot/v1/{product_id}/{device_id}/{direction}/{capability}/{operation}`
    - **Short:** `v1/{code}[/{op}]` per spec mapping table (`v1/t`, `v1/a`, `v1/r/req`, …)
@@ -80,7 +80,7 @@ When adding features, keep API and topics aligned with the spec and the checklis
    - Spec v1: `reported` / `desired` as **string arrays** (not CSV `clientKeys`/`sharedKeys`)
    - Support `["*"]` for all keys in a scope
 
-6. **Service** (`CreartsIotService`)
+6. **Service** (`CogitorIotService`)
    - Extend `embed::Service`; wire to `embed::MqttService`
    - On connect: subscribe `down/#` (or `v1/#`); presence via session + LWT only (no status publish)
    - Publish helpers: telemetry, events, attributes, RPC response, NTP, OTA version/query/progress, logs
@@ -94,18 +94,18 @@ When adding features, keep API and topics aligned with the spec and the checklis
 
 9. **CMakeLists.txt** / **idf_component.yml** — `embed`, `embed_core`, `json`
 
-10. **Kconfig** — `CONFIG_EMBED_CREARTS_IOT_*` (product, device, host, token, TLS, port, topic style)
+10. **Kconfig** — `CONFIG_EMBED_COGITOR_IOT_*` (product, device, host, token, TLS, port, topic style)
 
 ## Component Layout (current)
 
 ```
-components/crearts_iot/
-├── include/crearts_iot/
-│   ├── crearts_iot.hpp
+components/cogitor_iot/
+├── include/cogitor_iot/
+│   ├── cogitor_iot.hpp
 │   ├── credentials.hpp
 │   ├── topics.hpp
 │   ├── topic_strings.hpp
-│   ├── crearts_iot_service.hpp
+│   ├── cogitor_iot_service.hpp
 │   ├── telemetry.hpp
 │   ├── attributes.hpp
 │   └── metrics_telemetry_bridge.hpp
@@ -127,25 +127,25 @@ components/crearts_iot/
 ## Example Wiring
 
 ```cpp
-#include "crearts_iot/crearts_iot.hpp"
+#include "cogitor_iot/cogitor_iot.hpp"
 #include "sdkconfig.h"
 
-static auto creds = crearts::iot::CreartsCredentials::createAccessToken(
-    CONFIG_EMBED_CREARTS_IOT_PRODUCT_ID,
-    CONFIG_EMBED_CREARTS_IOT_DEVICE_ID,
-    CONFIG_EMBED_CREARTS_IOT_HOST,
-    CONFIG_EMBED_CREARTS_IOT_ACCESS_TOKEN,
-#ifdef CONFIG_EMBED_CREARTS_IOT_TOPIC_SHORT
-    crearts::iot::TopicStyle::Short
+static auto creds = cogitor::iot::CogitorCredentials::createAccessToken(
+    CONFIG_EMBED_COGITOR_IOT_PRODUCT_ID,
+    CONFIG_EMBED_COGITOR_IOT_DEVICE_ID,
+    CONFIG_EMBED_COGITOR_IOT_HOST,
+    CONFIG_EMBED_COGITOR_IOT_ACCESS_TOKEN,
+#ifdef CONFIG_EMBED_COGITOR_IOT_TOPIC_SHORT
+    cogitor::iot::TopicStyle::Short
 #else
-    crearts::iot::TopicStyle::Full
+    cogitor::iot::TopicStyle::Full
 #endif
 );
 
 registry.createService<embed::MqttService>(*creds);
 registry.createService<embed::MetricsService>();
-registry.createService<crearts::iot::CreartsIotService>(*creds);
-registry.createService<crearts::iot::MetricsTelemetryBridge>();
+registry.createService<cogitor::iot::CogitorIotService>(*creds);
+registry.createService<cogitor::iot::MetricsTelemetryBridge>();
 ```
 
 ## Testing Checklist
@@ -159,7 +159,7 @@ registry.createService<crearts::iot::MetricsTelemetryBridge>();
 - [ ] Correlation via body `id` (not topic)
 - [ ] Metrics bridge publishes telemetry
 - [ ] NTP request/response include body `id`
-- [ ] Credentials come from `CONFIG_EMBED_CREARTS_IOT_*` (not source literals)
+- [ ] Credentials come from `CONFIG_EMBED_COGITOR_IOT_*` (not source literals)
 
 ## Code Style
 

@@ -33,8 +33,8 @@ function Test-IsAdmin {
 }
 
 function Get-RabbitIp {
-    $ip = (podman inspect crearts-rabbitmq --format "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}").Trim()
-    if (-not $ip) { throw "crearts-rabbitmq not running / no IP" }
+    $ip = (podman inspect cogitor-rabbitmq --format "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}").Trim()
+    if (-not $ip) { throw "cogitor-rabbitmq not running / no IP" }
     return $ip
 }
 
@@ -84,18 +84,18 @@ function Test-Tcp {
 function Open-MqttFirewall {
     param([int]$Port)
 
-    Get-NetFirewallRule -DisplayName "Crearts mqtt $Port" -ErrorAction SilentlyContinue |
+    Get-NetFirewallRule -DisplayName "Cogitor mqtt $Port" -ErrorAction SilentlyContinue |
         Remove-NetFirewallRule -ErrorAction SilentlyContinue
-    New-NetFirewallRule -DisplayName "Crearts mqtt $Port" -Direction Inbound `
+    New-NetFirewallRule -DisplayName "Cogitor mqtt $Port" -Direction Inbound `
         -Protocol TCP -LocalPort $Port -Action Allow -Profile Any | Out-Null
     Write-Host "Windows firewall: allow TCP $Port"
 
     # Mirrored WSL: LAN hits Hyper-V firewall, not only the classic Windows one.
     try {
         Get-NetFirewallHyperVRule -ErrorAction SilentlyContinue |
-            Where-Object { $_.DisplayName -like "Crearts MQTT*" } |
+            Where-Object { $_.DisplayName -like "Cogitor MQTT*" } |
             ForEach-Object { Remove-NetFirewallHyperVRule -Name $_.Name -ErrorAction SilentlyContinue }
-        New-NetFirewallHyperVRule -Name "Crearts-MQTT-$Port" -DisplayName "Crearts MQTT $Port" `
+        New-NetFirewallHyperVRule -Name "Cogitor-MQTT-$Port" -DisplayName "Cogitor MQTT $Port" `
             -Direction Inbound -VMCreatorId $WslVmCreatorId -Protocol TCP `
             -LocalPorts $Port -Action Allow | Out-Null
         Write-Host "Hyper-V firewall: allow TCP $Port (WSL mirrored)"
@@ -108,18 +108,18 @@ function Remove-MqttExposure {
     Write-Host "Removing relay / portproxy / firewall leftovers..."
     if (Get-Command podman -ErrorAction SilentlyContinue) {
         try {
-            podman machine ssh -- "pkill -f crearts-port-relay || true" 2>$null | Out-Null
+            podman machine ssh -- "pkill -f cogitor-port-relay || true" 2>$null | Out-Null
         } catch {}
     }
     foreach ($listen in (@($MqttPort) + $LegacyPorts | Select-Object -Unique)) {
         netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=$listen 2>$null | Out-Null
         netsh interface portproxy delete v4tov4 listenaddress=127.0.0.1 listenport=$listen 2>$null | Out-Null
     }
-    Get-NetFirewallRule -DisplayName "Crearts mqtt*" -ErrorAction SilentlyContinue |
+    Get-NetFirewallRule -DisplayName "Cogitor mqtt*" -ErrorAction SilentlyContinue |
         Remove-NetFirewallRule -ErrorAction SilentlyContinue
     try {
         Get-NetFirewallHyperVRule -ErrorAction SilentlyContinue |
-            Where-Object { $_.DisplayName -like "Crearts MQTT*" } |
+            Where-Object { $_.DisplayName -like "Cogitor MQTT*" } |
             ForEach-Object { Remove-NetFirewallHyperVRule -Name $_.Name -ErrorAction SilentlyContinue }
     } catch {}
     Write-Host "Done."
@@ -150,7 +150,7 @@ srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 srv.bind((listen_ip, listen_port))
 srv.listen(128)
-print(f"crearts-port-relay {listen_ip}:{listen_port} -> {dest_ip}:{dest_port}", flush=True)
+print(f"cogitor-port-relay {listen_ip}:{listen_port} -> {dest_ip}:{dest_port}", flush=True)
 while True:
     c, _ = srv.accept()
     u = socket.create_connection((dest_ip, dest_port))
@@ -159,7 +159,7 @@ while True:
 '@
 
     $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($relayPy))
-    podman machine ssh -- "pkill -f crearts-port-relay || true; echo $b64 | base64 -d > /tmp/crearts-port-relay.py; nohup /usr/sbin/python3 /tmp/crearts-port-relay.py 0.0.0.0 $Port $RabbitIp $Port >/tmp/crearts-relay-$Port.log 2>&1 & sleep 1; cat /tmp/crearts-relay-$Port.log"
+    podman machine ssh -- "pkill -f cogitor-port-relay || true; echo $b64 | base64 -d > /tmp/cogitor-port-relay.py; nohup /usr/sbin/python3 /tmp/cogitor-port-relay.py 0.0.0.0 $Port $RabbitIp $Port >/tmp/cogitor-relay-$Port.log 2>&1 & sleep 1; cat /tmp/cogitor-relay-$Port.log"
 
     netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=$Port 2>$null | Out-Null
     netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=$Port connectaddress=$WslIp connectport=$Port | Out-Null
@@ -198,7 +198,7 @@ Open-MqttFirewall -Port $MqttPort
 if ($mirrored) {
     # Publish already owns :1883 inside the VM. Windows->own LAN IP is hairpin-broken;
     # expose LAN by proxying host 0.0.0.0:1883 -> 127.0.0.1:1883 (localhost forward works).
-    podman machine ssh -- "pkill -f crearts-port-relay || true" 2>$null | Out-Null
+    podman machine ssh -- "pkill -f cogitor-port-relay || true" 2>$null | Out-Null
     netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=$MqttPort 2>$null | Out-Null
     netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=$MqttPort `
         connectaddress=127.0.0.1 connectport=$MqttPort | Out-Null
