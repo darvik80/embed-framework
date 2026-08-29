@@ -36,7 +36,6 @@ env:
 jobs:
   sync-docs:
     name: Sync docs to prd-review
-    runs-on: ubuntu-latest
     steps:
       # ── 1. Checkout source repo ─────────────────────────────────
       - name: Checkout source repo
