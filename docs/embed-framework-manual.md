@@ -46,7 +46,7 @@
    - [7.9 OTA](#79-ota)
    - [7.10 DeviceInfo](#710-deviceinfo)
    - [7.11 MetricsTelemetryBridge](#711-metricstelemetrybridge)
-8. [Integration with iot-platform-go](#8-integration-with-iot-platform-go)
+8. [Integration with Cogitor IoT Platform](#8-integration-with-cogitor-iot-platform)
 9. [Complete Application Example](#9-complete-application-example)
 10. [Kconfig Reference](#10-kconfig-reference)
 11. [Appendix: MQTT Topic Map](#11-appendix-mqtt-topic-map)
@@ -967,7 +967,7 @@ registry.startAll();
 
 ## 7. `cogitor_iot` — Cogitor IoT Platform SDK
 
-Device-side SDK for the [Cogitor IoT Platform](#8-integration-with-iot-platform-go) (protocol v1). Implements the full MQTT spec: telemetry, attributes, RPC, NTP, OTA, events, logs.
+Device-side SDK for the [Cogitor IoT Platform](#8-integration-with-cogitor-iot-platform) (protocol v1). Implements the full MQTT spec: telemetry, attributes, RPC, NTP, OTA, events, logs.
 
 ```cpp
 #include "cogitor_iot/cogitor_iot.hpp"
@@ -1450,9 +1450,9 @@ On each `MetricsCollected` signal, builds and publishes telemetry JSON:
 
 ---
 
-## 8. Integration with iot-platform-go
+## 8. Integration with Cogitor IoT Platform
 
-The [Cogitor IoT Platform](https://github.com/your-org/iot-platform-go) (`iot-platform-go`) is a self-hosted, single-binary IoT backend with embedded MQTT broker, SQLite, and React dashboard.
+The Cogitor IoT Platform is a self-hosted, single-binary IoT backend with embedded MQTT broker, SQLite, and React dashboard.
 
 ### Platform Setup
 

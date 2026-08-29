@@ -21,7 +21,7 @@ Same Docker/Podman network: Node-RED reaches the broker as hostname **`rabbitmq`
 
 ### MQTT moved into the Go platform
 
-Do **not** run `fix-podman-ports.ps1` for `iot-platform-go`. The platform process **is** the MQTT broker on `:1883`. The old WSL `netsh portproxy` (`0.0.0.0:1883 → 127.0.0.1:1883`) makes Windows `svchost` steal LAN connections; ESP then hits RabbitMQ/loopback and fails with `transport_read(): EOF`.
+Do **not** run `fix-podman-ports.ps1` for the Cogitor IoT Platform. The platform process **is** the MQTT broker on `:1883`. The old WSL `netsh portproxy` (`0.0.0.0:1883 → 127.0.0.1:1883`) makes Windows `svchost` steal LAN connections; ESP then hits RabbitMQ/loopback and fails with `transport_read(): EOF`.
 
 Clean leftovers (Admin PowerShell):
 

@@ -2,7 +2,7 @@
 
 C++20 service framework for **ESP-IDF ≥ 5.5** (ESP32-S3): fixed-size `ServiceRegistry`, Signal/Slot on a dedicated `esp_event` loop, CRTP state machines, and cloud device SDKs (Cogitor IoT, Alibaba Cloud, ThingsBoard).
 
-**[Developer Manual](docs/embed-framework-manual.md)** — comprehensive guide covering all components, API reference, code examples, and iot-platform-go integration.
+**[Developer Manual](docs/embed-framework-manual.md)** — comprehensive guide covering all components, API reference, code examples, and Cogitor IoT Platform integration.
 
 ## Quick start
 
@@ -190,7 +190,7 @@ See [docs/ci.md](docs/ci.md). Workflows: `.gitea/workflows/ci.yml` (mirrored und
 
 | Doc | Contents |
 |-----|----------|
-| [**Developer Manual**](docs/embed-framework-manual.md) | Full guide: all components, API, examples, iot-platform-go integration |
+| [**Developer Manual**](docs/embed-framework-manual.md) | Full guide: all components, API, examples, Cogitor IoT Platform integration |
 | [docs/architecture.md](docs/architecture.md) | Layering, events, ownership |
 | [docs/iot-platform-mqtt-spec.md](docs/iot-platform-mqtt-spec.md) | Cogitor MQTT protocol v1 |
 | [docs/iot-platform-service-prompt.md](docs/iot-platform-service-prompt.md) | Platform (Go/React/Node-RED) design prompt |

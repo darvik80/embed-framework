@@ -54,7 +54,7 @@ This PRD specifies the functional, non-functional, and integration requirements 
 
 | In Scope | Out of Scope |
 |----------|--------------|
-| Service registry, event loop, signal/slot, CRTP state machine, fixed-size POD containers | Cloud-side platform code (the `iot-platform-go` backend is a sibling project) |
+| Service registry, event loop, signal/slot, CRTP state machine, fixed-size POD containers | Cloud-side platform code (the **Cogitor IoT Platform** backend is a sibling project) |
 | WiFi STA + SoftAP, MQTT client, persistent settings, metrics | Other cloud SDKs (`alicloud_*`, `thingsboard`) — they are plug-ins that follow the same contract documented here, but are not part of this PRD |
 | Camera capture, MJPEG streaming, WS2812 LED strip | Hardware-specific board ports beyond what `Kconfig.projbuild` exposes |
 | Cogitor IoT device SDK (protocol v1): telemetry, attributes, RPC, NTP, OTA, events, logs | Network topology, RabbitMQ broker configuration (covered by `deploy/`) |
@@ -289,13 +289,13 @@ classDiagram
 }}%%
 sequenceDiagram
     participant Producer as Producer task<br/>(e.g. MQTT worker)
-    participant Loop as EventLoop<br/>(embed_evt task)
+    participant EvtLoop as EventLoop<br/>(embed_evt task)
     participant Slot as Slot callback<br/>(Service::start)
     participant Consumer as Consumer state
 
-    Producer->>Loop: esp_event_post(base, id, &msg, sizeof(M), 100ms)
-    Note over Loop: enqueue or timeout
-    Loop-->>Slot: dispatch on dedup'd task
+    Producer->>EvtLoop: esp_event_post(base, id, &msg, sizeof(M), 100ms)
+    Note over EvtLoop: enqueue or timeout
+    EvtLoop-->>Slot: dispatch on dedup'd task
     Slot->>Consumer: onStateChanged(TransitionTo<...>)  or direct call
     Consumer-->>Consumer: apply effect, may emit another Signal
 ```
@@ -439,11 +439,11 @@ sequenceDiagram
     participant MQTT as MqttService
     participant M as MetricsService
     participant NVS as NVS fctry
-    participant Loop as embed_evt
+    participant EvtLoop as embed_evt
     participant Net as WiFi / IP stack
 
     App->>NVS: NvsStore::initFlash()
-    App->>Loop: EventLoop::instance().init()
+    App->>EvtLoop: EventLoop::instance().init()
     App->>SR: createService<WifiService>()
     App->>SR: createService<MetricsService>()
     App->>SR: createService<MqttService>(creds)
@@ -452,12 +452,12 @@ sequenceDiagram
     Wifi->>NVS: loadWifiSettings
     Wifi->>Net: esp_wifi_start()
     Net-->>Wifi: WIFI_EVENT_STA_CONNECTED / IP acquired
-    Wifi->>Loop: emit WifiConnected{ip}
-    Loop-->>MQTT: Slot onWifiConnected fires
+    Wifi->>EvtLoop: emit WifiConnected{ip}
+    EvtLoop-->>MQTT: Slot onWifiConnected fires
     MQTT->>Net: esp_mqtt_client_start()
     Net-->>MQTT: MQTT_EVENT_CONNECTED
-    MQTT->>Loop: emit MqttConnected{brokerUri}
-    M->>Loop: emit MetricsCollected (every 10 s)
+    MQTT->>EvtLoop: emit MqttConnected{brokerUri}
+    M->>EvtLoop: emit MetricsCollected (every 10 s)
 ```
 
 [↑ Back to Top](#product-requirements-document--embed-framework)
@@ -592,12 +592,10 @@ sequenceDiagram
 
 `cogitor_iot` is the **device SDK for the Cogitor IoT Platform** (protocol **v1**). It implements the full MQTT contract — credentials, topic builders, telemetry, events, attributes (reported + desired), RPC, NTP, OTA, device info, logs, metrics bridge, and a captive config portal — and exposes them as `embed::Service` instances and `embed::Signal`s. It depends on `embed` and `embed_core`; it does not require any other cloud SDK.
 
-**Note on naming:** The legacy name `copilot_iot` is deprecated and refers to the same component (`cogitor_iot`). All new code MUST use `cogitor_iot`.
-
 **Key boundaries:**
 
 - **In:** `CogitorCredentials` (access-token or basic auth, LWT), `loadOrSeedCredentials()` (NVS `fctry` + Kconfig seed), `Topics` (Short / Full), `IotService` (subscribe downstream + dispatch), `TelemetryBuilder` / `TelemetryBatch`, `AttributeBuilder` / `AttributeRequestBuilder`, `RpcRegistry` (built-in `rpc-list`), `OtaService` (HTTPS + MQTT-stream), `NtpService`, `ConfigPortalService`, `DeviceInfo`, `MetricsTelemetryBridge`, `log_service`.
-- **Out:** Backend server code (in `iot-platform-go`).
+- **Out:** Backend server code (Cogitor IoT Platform).
 
 ### 5.2 Architecture & Interdependencies
 
