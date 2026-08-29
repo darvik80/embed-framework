@@ -12,7 +12,7 @@ name: Sync docs → prd-review
 on:
   push:
     branches:
-      - master
+      - feature/issue-11-prd-revivew
     paths:
       - "docs/**"
   workflow_dispatch:
