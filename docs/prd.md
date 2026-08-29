@@ -62,6 +62,10 @@ This PRD specifies the functional, non-functional, and integration requirements 
 
 ### 1.3 Component Dependency Layering
 
+![Architecture](images/embed.png)
+
+<details>
+
 ```mermaid
 %%{init: {
   "flowchart": {
@@ -138,6 +142,8 @@ flowchart TB
     Svc --> Crypto
     Base -. no upward dependencies .-> Base
 ```
+
+</details>
 
 **Direction rule:** Dependencies flow **downward only**. Cloud provider components implement `embed::MqttCredentials` and consume `MqttService` signals; they must never be required by `embed` itself. This is enforced at the include level (CMake `idf_component.yml` REQUIRES lists).
 
