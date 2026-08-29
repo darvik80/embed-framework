@@ -13,9 +13,8 @@ on:
   push:
     branches:
       - master
-      - main
-      - "feature*"
-      - "feature/**"
+      - "release*"
+      - "release/**"
   pull_request:
   workflow_dispatch:
 
