@@ -170,9 +170,9 @@ void AttributeRequestBuilder::appendUnique(std::vector<std::string>& keys, std::
     keys.emplace_back(key);
 }
 
-AttributeRequestBuilder& AttributeRequestBuilder::id(uint32_t requestId)
+AttributeRequestBuilder& AttributeRequestBuilder::id(std::string_view requestId)
 {
-    id_ = requestId;
+    id_ = std::string(requestId);
     hasId_ = true;
     return *this;
 }
@@ -209,7 +209,7 @@ std::string AttributeRequestBuilder::build() const
     if (!root) return {};
 
     if (hasId_) {
-        cJSON_AddNumberToObject(root, "id", static_cast<double>(id_));
+        cJSON_AddStringToObject(root, "id", id_.c_str());
     }
     addKeyArray(root, "reported", reported_);
     addKeyArray(root, "desired", desired_);
@@ -224,7 +224,7 @@ std::string AttributeRequestBuilder::build() const
 
 void AttributeRequestBuilder::clear()
 {
-    id_ = 0;
+    id_.clear();
     hasId_ = false;
     reported_.clear();
     desired_.clear();
@@ -304,14 +304,18 @@ bool attributeGetString(std::string_view objectJson, const char* key, std::strin
     return ok;
 }
 
-uint32_t parseJsonId(std::string_view payload)
+std::string parseJsonId(std::string_view payload)
 {
     cJSON* root = parseObject(payload);
-    if (!root) return 0;
+    if (!root) return {};
     cJSON* id = cJSON_GetObjectItemCaseSensitive(root, "id");
-    uint32_t out = 0;
-    if (cJSON_IsNumber(id) && id->valuedouble > 0) {
-        out = static_cast<uint32_t>(id->valuedouble);
+    std::string out;
+    if (cJSON_IsString(id) && id->valuestring) {
+        out = id->valuestring;
+    } else if (cJSON_IsNumber(id)) {
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "%.0f", id->valuedouble);
+        out = buf;
     }
     cJSON_Delete(root);
     return out;

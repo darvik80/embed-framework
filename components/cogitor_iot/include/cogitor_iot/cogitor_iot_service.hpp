@@ -20,20 +20,13 @@ struct AttributeUpdate {
 static_assert(embed::Message<AttributeUpdate>);
 
 struct AttributeResponse {
-    uint32_t requestId = 0;
+    embed::string<63> requestId;
     embed::string<767> payload;
 };
 static_assert(embed::Message<AttributeResponse>);
 
-struct RpcRequest {
-    uint32_t requestId = 0;
-    embed::string<63> method;
-    embed::string<1199> params;
-};
-static_assert(embed::Message<RpcRequest>);
-
 struct NtpResponse {
-    uint32_t requestId = 0;
+    embed::string<63> requestId;
     int64_t deviceSendTime = 0;
     int64_t serverRecvTime = 0;
     int64_t serverSendTime = 0;
@@ -76,16 +69,16 @@ public:
 
     int requestAttributes(const AttributeRequestBuilder& request, int qos = 1);
     int requestAttributes(const AttributeRequestBuilder& request,
-                          uint32_t& outRequestId,
+                          std::string& outRequestId,
                           int qos = 1);
 
-    int respondRpc(uint32_t requestId,
+    int respondRpc(std::string_view requestId,
                    int code,
                    std::string_view message,
                    std::string_view dataJson = {},
                    int qos = 1);
 
-    int requestNtp(uint32_t& outRequestId, int64_t deviceSendTimeMs, int qos = 1);
+    int requestNtp(std::string& outRequestId, int64_t deviceSendTimeMs, int qos = 1);
 
     int publishOtaVersion(std::string_view version, std::string_view module = "main", int qos = 1);
     int publishOtaQuery(std::string_view module = "main",
@@ -128,7 +121,7 @@ private:
     void unsubscribeAll();
     void handleMessage(std::string_view topic, std::string_view payload);
 
-    uint32_t allocRequestId();
+    std::string allocRequestId();
     int publishRaw(const std::string& topic, std::string_view json, int qos, bool retain = false);
 };
 

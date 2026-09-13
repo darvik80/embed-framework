@@ -175,7 +175,7 @@ Follow embed-framework conventions (`ServiceRegistry`, Signal/Slot, trivially-co
 | Alicloud property post | `…/up/attributes/report` |
 | Alicloud service invoke | `…/down/rpc/request` + `method` / `id` in JSON |
 | Draft spec `iot/{type}/{id}/…` | `iot/v1/{product_id}/{id}/…` |
-| Id in topic (`…/request/42`) | stable topic + `"id": 42` in body |
+| Id in topic (`…/request/42`) | stable topic + `"id": "42"` in body |
 | ThingsBoard short `v2/t` | our short `v1/t` (and full form still supported) |
 
 ## Success Criteria

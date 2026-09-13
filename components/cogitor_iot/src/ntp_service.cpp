@@ -74,10 +74,10 @@ void NtpService::onNtpResponse(const NtpResponse& res, void* ctx)
     auto* self = static_cast<NtpService*>(ctx);
     if (!self->iot_) return;
 
-    if (res.requestId != self->pendingRequestId_) {
-        ESP_LOGW(TAG, "NTP response id=%lu != pending=%lu — ignoring",
-                 static_cast<unsigned long>(res.requestId),
-                 static_cast<unsigned long>(self->pendingRequestId_));
+    if (self->pendingRequestId_ != res.requestId.c_str()) {
+        ESP_LOGW(TAG, "NTP response id=%s != pending=%s — ignoring",
+                 res.requestId.c_str(),
+                 self->pendingRequestId_.c_str());
         return;
     }
 
@@ -118,8 +118,8 @@ void NtpService::sendRequest()
         ESP_LOGW(TAG, "Failed to send NTP request");
         return;
     }
-    ESP_LOGI(TAG, "NTP request sent id=%lu msg_id=%d",
-             static_cast<unsigned long>(pendingRequestId_), msgId);
+    ESP_LOGI(TAG, "NTP request sent id=%s msg_id=%d",
+             pendingRequestId_.c_str(), msgId);
 
     // Schedule next resync
     if (resyncTimer_) {

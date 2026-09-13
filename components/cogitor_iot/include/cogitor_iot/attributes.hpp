@@ -46,7 +46,7 @@ class AttributeRequestBuilder {
 public:
     AttributeRequestBuilder() = default;
 
-    AttributeRequestBuilder& id(uint32_t requestId);
+    AttributeRequestBuilder& id(std::string_view requestId);
     AttributeRequestBuilder& addReported(std::string_view key);
     AttributeRequestBuilder& addDesired(std::string_view key);
     AttributeRequestBuilder& reportedAll();
@@ -60,7 +60,7 @@ public:
     void clear();
 
 private:
-    uint32_t id_ = 0;
+    std::string id_;
     bool hasId_ = false;
     std::vector<std::string> reported_;
     std::vector<std::string> desired_;
@@ -80,7 +80,7 @@ struct AttributeValues {
 [[nodiscard]] bool attributeGetBool(std::string_view objectJson, const char* key, bool& out);
 [[nodiscard]] bool attributeGetString(std::string_view objectJson, const char* key, std::string& out);
 
-/// Extract numeric `"id"` from a JSON object; returns 0 if missing/invalid.
-[[nodiscard]] uint32_t parseJsonId(std::string_view payload);
+/// Extract string `"id"` from a JSON object; returns empty string if missing/invalid.
+[[nodiscard]] std::string parseJsonId(std::string_view payload);
 
 } // namespace cogitor::iot

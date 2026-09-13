@@ -1,5 +1,8 @@
 #pragma once
 
+#include "embed/string.hpp"
+#include "embed/message.hpp"
+
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -8,7 +11,12 @@ struct cJSON;
 
 namespace cogitor::iot {
 
-struct RpcRequest;
+struct RpcRequest {
+    embed::string<63> requestId;
+    embed::string<63> method;
+    embed::string<1199> params;
+};
+static_assert(embed::Message<RpcRequest>);
 
 /// One parse of an RPC `params` JSON object. Missing/invalid JSON → empty object.
 class RpcParams {

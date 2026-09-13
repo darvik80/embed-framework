@@ -147,7 +147,7 @@ bool RpcRegistry::dispatch(IotService& iot, const RpcRequest& req) const
 {
     if (isRpcList(req.method.c_str())) {
         const std::string json = listJson();
-        iot.respondRpc(req.requestId, 0, "ok", json);
+        iot.respondRpc(req.requestId.c_str(), 0, "ok", json);
         return true;
     }
 
@@ -157,7 +157,7 @@ bool RpcRegistry::dispatch(IotService& iot, const RpcRequest& req) const
     }
 
     const RpcParams params(req.params.c_str());
-    e->handler(iot, req.requestId, params, e->ctx);
+    e->handler(iot, req.requestId.c_str(), params, e->ctx);
     return true;
 }
 

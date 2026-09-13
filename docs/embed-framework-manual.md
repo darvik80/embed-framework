@@ -1115,7 +1115,7 @@ iot->publishAttributes(R"({"firmwareVersion":"2.1.0"})");
 iot->publishAttributes(builder);  // AttributeBuilder
 
 // Request attributes from platform
-uint32_t reqId;
+std::string reqId;
 cogitor::iot::AttributeRequestBuilder req;
 req.addDesired("targetTemperature").addReported("firmwareVersion");
 iot->requestAttributes(req, reqId);
@@ -1125,7 +1125,7 @@ iot->respondRpc(requestId, 0, "ok", R"({"rebooting":true})");
 
 // NTP
 int64_t sendTimeMs = esp_timer_get_time() / 1000;
-uint32_t ntpReqId;
+std::string ntpReqId;
 iot->requestNtp(ntpReqId, sendTimeMs);
 
 // OTA version report
@@ -1203,9 +1203,9 @@ cogitor::iot::AttributeRequestBuilder req;
 req.addReported("firmwareVersion")
    .addDesired("targetTemperature")
    .addDesired("enabled");
-uint32_t reqId;
+std::string reqId;
 iot->requestAttributes(req, reqId);
-// → {"id":7,"reported":["firmwareVersion"],"desired":["targetTemperature","enabled"]}
+// → {"id":"7","reported":["firmwareVersion"],"desired":["targetTemperature","enabled"]}
 ```
 
 #### Handling attribute updates (desired push from platform)
@@ -1259,7 +1259,7 @@ static constexpr cogitor::iot::RpcParamDef kSetLed[] = {
 
 // Handler signature
 static void onEcho(cogitor::iot::IotService& iot,
-                   uint32_t requestId,
+                   std::string_view requestId,
                    const cogitor::iot::RpcParams& params,
                    void* ctx)
 {
@@ -1310,13 +1310,13 @@ std::string name = params.getString("name", "default");
 Every device automatically supports `rpc-list` — returns the full method catalog:
 
 ```json
-{ "id": 1, "method": "rpc-list", "params": {} }
+{ "id": "1", "method": "rpc-list", "params": {} }
 ```
 
 Response:
 ```json
 {
-  "id": 1, "code": 0, "message": "ok",
+  "id": "1", "code": 0, "message": "ok",
   "data": [
     { "method": "rpc-list", "params": {}, "required": [] },
     { "method": "echo", "params": { "msg": { "type": "string", "required": true } }, "required": ["msg"] },
@@ -1353,7 +1353,7 @@ Request time synchronization with the platform:
 
 ```cpp
 int64_t deviceSendTimeMs = esp_timer_get_time() / 1000;
-uint32_t requestId;
+std::string requestId;
 iot->requestNtp(requestId, deviceSendTimeMs);
 
 // Handle response
@@ -1818,4 +1818,4 @@ Client ID: `home.esp32-s3`
 | Logs | `…/up/logs/report` | `v1/l` |
 | Device sub | `…/down/#` | `v1/#` |
 
-**Correlation:** All request/response pairs carry `"id"` in the JSON body (uint32). Topics are fixed strings.
+**Correlation:** All request/response pairs carry `"id"` in the JSON body (string). Topics are fixed strings.

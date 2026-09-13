@@ -50,7 +50,7 @@ Capabilities to handle on the **server**:
 | `ota/update`, `ota/cancel` | OTA notify / cancel |
 | `ntp/response` / `v1/n/res` | Time sync reply |
 
-Correlation: JSON field `"id"` (uint32), **not** in the topic path. RPC success `code: 0`.
+Correlation: JSON field `"id"` (string), **not** in the topic path. RPC success `code: 0`.
 
 ---
 

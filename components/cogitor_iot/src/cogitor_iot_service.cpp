@@ -48,11 +48,11 @@ void IotService::stop()
     ESP_LOGI(TAG, "Stopped");
 }
 
-uint32_t IotService::allocRequestId()
+std::string IotService::allocRequestId()
 {
     const uint32_t id = nextRequestId_++;
     if (nextRequestId_ == 0) nextRequestId_ = 1;
-    return id;
+    return std::to_string(id);
 }
 
 int IotService::publishRaw(const std::string& topic,
@@ -118,13 +118,13 @@ int IotService::publishAttributes(const AttributeBuilder& builder, int qos)
 
 int IotService::requestAttributes(const AttributeRequestBuilder& request, int qos)
 {
-    uint32_t unused = 0;
+    std::string unused;
     return requestAttributes(request, unused, qos);
 }
 
 int IotService::requestAttributes(const AttributeRequestBuilder& request,
-                                         uint32_t& outRequestId,
-                                         int qos)
+                                  std::string& outRequestId,
+                                  int qos)
 {
     if (request.empty()) {
         ESP_LOGW(TAG, "requestAttributes: no keys");
@@ -139,20 +139,21 @@ int IotService::requestAttributes(const AttributeRequestBuilder& request,
     return publishRaw(topics_.attributesRequest(), json, qos);
 }
 
-int IotService::respondRpc(uint32_t requestId,
-                                  int code,
-                                  std::string_view message,
-                                  std::string_view dataJson,
-                                  int qos)
+int IotService::respondRpc(std::string_view requestId,
+                           int code,
+                           std::string_view message,
+                           std::string_view dataJson,
+                           int qos)
 {
-    if (requestId == 0) return -1;
+    if (requestId.empty()) return -1;
 
+    const std::string requestIdStr(requestId);
     const std::string messageStr(message);
     const std::string dataStr(dataJson);
 
     cJSON* root = cJSON_CreateObject();
     if (!root) return -1;
-    cJSON_AddNumberToObject(root, "id", static_cast<double>(requestId));
+    cJSON_AddStringToObject(root, "id", requestIdStr.c_str());
     cJSON_AddNumberToObject(root, "code", code);
     cJSON_AddStringToObject(root, "message", messageStr.c_str());
 
@@ -175,12 +176,12 @@ int IotService::respondRpc(uint32_t requestId,
     return msgId;
 }
 
-int IotService::requestNtp(uint32_t& outRequestId, int64_t deviceSendTimeMs, int qos)
+int IotService::requestNtp(std::string& outRequestId, int64_t deviceSendTimeMs, int qos)
 {
     outRequestId = allocRequestId();
     cJSON* root = cJSON_CreateObject();
     if (!root) return -1;
-    cJSON_AddNumberToObject(root, "id", static_cast<double>(outRequestId));
+    cJSON_AddStringToObject(root, "id", outRequestId.c_str());
     cJSON_AddNumberToObject(root, "deviceSendTime", static_cast<double>(deviceSendTimeMs));
     char* printed = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
@@ -302,18 +303,19 @@ void IotService::handleMessage(std::string_view topic, std::string_view payload)
             ESP_LOGW(TAG, "RPC request: invalid JSON");
             return;
         }
-        ESP_LOGD(TAG, "RPC req id=%lu method=%s",
-                 static_cast<unsigned long>(req.requestId), req.method.c_str());
+        ESP_LOGD(TAG, "RPC req id=%s method=%s",
+                 req.requestId.c_str(), req.method.c_str());
         onRpcRequest.emit(req);
         if (rpc_ && !rpc_->dispatch(*this, req)) {
-            respondRpc(req.requestId, 404, "unknown method");
+            respondRpc(req.requestId.c_str(), 404, "unknown method");
         }
         return;
     }
 
     if (Topics::isAttributeResponse(topic)) {
         AttributeResponse res{};
-        res.requestId = parseJsonId(payload);
+        const std::string id = parseJsonId(payload);
+        res.requestId = id.c_str();
         res.payload.assign(payload.data(), payload.size());
         onAttributeResponse.emit(res);
         return;
@@ -328,7 +330,8 @@ void IotService::handleMessage(std::string_view topic, std::string_view payload)
 
     if (Topics::isNtpResponse(topic)) {
         NtpResponse res{};
-        res.requestId = parseJsonId(payload);
+        const std::string id = parseJsonId(payload);
+        res.requestId = id.c_str();
         cJSON* root = cJSON_ParseWithLength(payload.data(), payload.size());
         if (root) {
             cJSON* a = cJSON_GetObjectItemCaseSensitive(root, "deviceSendTime");

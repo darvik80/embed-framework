@@ -209,7 +209,7 @@ public:
 
 private:
     static void replyJson(cogitor::iot::IotService& iot,
-                          uint32_t id,
+                          std::string_view id,
                           int code,
                           const char* message,
                           cJSON* data)
@@ -240,7 +240,7 @@ private:
     }
 
     static void onEcho(cogitor::iot::IotService& iot,
-                       uint32_t id,
+                       std::string_view id,
                        const cogitor::iot::RpcParams& p,
                        void*)
     {
@@ -256,7 +256,7 @@ private:
     }
 
     static void onLedAttach(cogitor::iot::IotService& iot,
-                            uint32_t id,
+                            std::string_view id,
                             const cogitor::iot::RpcParams& p,
                             void*)
     {
@@ -288,7 +288,7 @@ private:
     }
 
     static void onLedDetach(cogitor::iot::IotService& iot,
-                            uint32_t id,
+                            std::string_view id,
                             const cogitor::iot::RpcParams& p,
                             void*)
     {
@@ -312,7 +312,7 @@ private:
     }
 
     static void onLedList(cogitor::iot::IotService& iot,
-                          uint32_t id,
+                          std::string_view id,
                           const cogitor::iot::RpcParams&,
                           void*)
     {
@@ -336,7 +336,7 @@ private:
     }
 
     static void onSetLed(cogitor::iot::IotService& iot,
-                         uint32_t id,
+                         std::string_view id,
                          const cogitor::iot::RpcParams& p,
                          void*)
     {
@@ -393,7 +393,7 @@ private:
     }
 
     static void onReboot(cogitor::iot::IotService& iot,
-                         uint32_t id,
+                         std::string_view id,
                          const cogitor::iot::RpcParams& p,
                          void*)
     {
@@ -408,7 +408,7 @@ private:
     }
 
     static void onFactoryReset(cogitor::iot::IotService& iot,
-                               uint32_t id,
+                               std::string_view id,
                                const cogitor::iot::RpcParams& p,
                                void*)
     {
@@ -427,7 +427,7 @@ private:
     }
 
     static void onConfigPortal(cogitor::iot::IotService& iot,
-                               uint32_t id,
+                               std::string_view id,
                                const cogitor::iot::RpcParams&,
                                void*)
     {
@@ -441,7 +441,7 @@ private:
     }
 
     static void onImportCredentials(cogitor::iot::IotService& iot,
-                                    uint32_t id,
+                                    std::string_view id,
                                     const cogitor::iot::RpcParams& p,
                                     void*)
     {
@@ -464,7 +464,7 @@ private:
     }
 
     static void onExportCredentials(cogitor::iot::IotService& iot,
-                                    uint32_t id,
+                                    std::string_view id,
                                     const cogitor::iot::RpcParams& p,
                                     void*)
     {
@@ -479,7 +479,7 @@ private:
     }
 
     static void onOtaRollback(cogitor::iot::IotService& iot,
-                              uint32_t id,
+                              std::string_view id,
                               const cogitor::iot::RpcParams& p,
                               void*)
     {

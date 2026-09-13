@@ -1,5 +1,4 @@
 #include "cogitor_iot/rpc_params.hpp"
-#include "cogitor_iot/cogitor_iot_service.hpp"
 
 #include "cJSON.h"
 
@@ -124,8 +123,12 @@ bool parseRpcRequest(std::string_view payload, RpcRequest& out)
     }
 
     cJSON* id = cJSON_GetObjectItemCaseSensitive(root, "id");
-    if (cJSON_IsNumber(id) && id->valuedouble > 0) {
-        out.requestId = static_cast<uint32_t>(id->valuedouble);
+    if (cJSON_IsString(id) && id->valuestring) {
+        out.requestId = id->valuestring;
+    } else if (cJSON_IsNumber(id)) {
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "%.0f", id->valuedouble);
+        out.requestId = buf;
     }
 
     cJSON* method = cJSON_GetObjectItemCaseSensitive(root, "method");

@@ -80,7 +80,7 @@ Mnemonic: `s` status, `t` telemetry, `e` events, `a` attributes, `r` RPC, `n` NT
 
 ### Correlation (`id`)
 
-All request/response operations include a numeric `id` in the **JSON body** (uint32). The response echoes the same `id`.
+All request/response operations include an `id` string in the **JSON body** (string). The response echoes the same `id`.
 
 - Topics are fixed strings — easier ACL, routing, and device subscribe lists.
 - Callers may have multiple in-flight requests; match responses by `id`.
@@ -270,7 +270,7 @@ Short: `v1/a/req`
 
 ```json
 {
-  "id": 7,
+  "id": "7",
   "reported": ["firmwareVersion", "serialNumber"],
   "desired": ["targetTemperature", "enabled"]
 }
@@ -287,7 +287,7 @@ Short: `v1/a/res`
 
 ```json
 {
-  "id": 7,
+  "id": "7",
   "reported": {
     "firmwareVersion": "2.1.0",
     "serialNumber": "SN-4A21F"
@@ -331,7 +331,7 @@ Short: `v1/r/req`
 
 ```json
 {
-  "id": 42,
+  "id": "42",
   "method": "reboot",
   "params": {
     "delayMs": 5000
@@ -349,7 +349,7 @@ Short: `v1/r/res`
 **Success:**
 ```json
 {
-  "id": 42,
+  "id": "42",
   "code": 0,
   "message": "ok",
   "data": {
@@ -361,7 +361,7 @@ Short: `v1/r/res`
 **Error:**
 ```json
 {
-  "id": 42,
+  "id": "42",
   "code": 404,
   "message": "unknown method",
   "data": null
@@ -377,7 +377,7 @@ Short: `v1/r/creq`
 
 ```json
 {
-  "id": 9,
+  "id": "9",
   "method": "issueUploadUrl",
   "params": {
     "contentType": "image/jpeg"
@@ -414,7 +414,7 @@ Every firmware that uses `CogitorIotService::rpc()` must implement **`rpc-list`*
 
 Request:
 ```json
-{ "id": 1, "method": "rpc-list", "params": {} }
+{ "id": "1", "method": "rpc-list", "params": {} }
 ```
 
 Response `data` is a **JSON array**:
@@ -469,7 +469,7 @@ Short: `v1/n/req`
 
 ```json
 {
-  "id": 3,
+  "id": "3",
   "deviceSendTime": 1451649600000
 }
 ```
@@ -483,7 +483,7 @@ Short: `v1/n/res`
 
 ```json
 {
-  "id": 3,
+  "id": "3",
   "deviceSendTime": 1451649600000,
   "serverRecvTime": 1451649600010,
   "serverSendTime": 1451649600015
@@ -643,7 +643,7 @@ All response payloads that indicate failure include `id` and:
 
 ```json
 {
-  "id": 42,
+  "id": "42",
   "code": 400,
   "message": "human-readable reason",
   "data": null
@@ -755,7 +755,7 @@ Platform must attach `product_id` / `device_id` from the MQTT connection (client
 | Null | use JSON `null` or omit optional fields |
 | Numbers | JSON number (not numeric strings) |
 | Strings | UTF-8 |
-| Request IDs | JSON number field `id` (uint32); echoed in response |
+| Request IDs | JSON string field `id` (string); echoed in response |
 | Compression | Optional; negotiate out-of-band (not in v1 topic) |
 
 ---
@@ -867,7 +867,7 @@ Do **not** use a direct exchange for device downlink when speaking MQTT — publ
 | Old | New |
 |-----|-----|
 | `iot/{device_type}/{id}/...` | `iot/v1/{product_id}/{id}/...` |
-| `…/rpc/request/42` (id in topic) | `…/rpc/request` + `"id": 42` in body |
+| `…/rpc/request/42` (id in topic) | `…/rpc/request` + `"id": "42"` in body |
 | `up/ntp/request/{request_id}` | `up/ntp/request` + `"id"` in body |
 | optional envelope | removed |
 | OTA `md5` | `sha256` (+ `sign` / `signMethod`) |
@@ -903,5 +903,5 @@ Client id: `esp32-cam.cam-001`
 | Logs | `…/up/logs/report` | `v1/l` |
 | Device sub | `…/down/#` | `v1/#` |
 
-Correlation example (RPC, either style): body `{"id":42,"method":"reboot","params":{...}}` on request topic; response body `{"id":42,"code":0,...}` on response topic.
+Correlation example (RPC, either style): body `{"id":"42","method":"reboot","params":{...}}` on request topic; response body `{"id":"42","code":0,...}` on response topic.
 

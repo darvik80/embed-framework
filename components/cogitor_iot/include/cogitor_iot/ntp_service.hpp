@@ -5,6 +5,7 @@
 #include "cogitor_iot/cogitor_iot_service.hpp"
 
 #include <cstdint>
+#include <string>
 
 namespace cogitor::iot {
 
@@ -36,7 +37,7 @@ public:
 private:
     IotService* iot_ = nullptr;
     esp_timer_handle_t resyncTimer_ = nullptr;
-    uint32_t pendingRequestId_ = 0;
+    std::string pendingRequestId_;
     int64_t offsetMs_ = 0;
     bool synced_ = false;
 

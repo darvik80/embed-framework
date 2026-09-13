@@ -81,7 +81,7 @@ public:
     static constexpr uint8_t kMaxMethods = 24;
 
     using Handler = void (*)(IotService& iot,
-                             uint32_t requestId,
+                             std::string_view requestId,
                              const RpcParams& params,
                              void* ctx);
 

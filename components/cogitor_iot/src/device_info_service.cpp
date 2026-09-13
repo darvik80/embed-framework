@@ -113,10 +113,10 @@ void DeviceInfo::onConnected(const embed::MqttConnected&, void* ctx)
 
     AttributeRequestBuilder req;
     req.desiredAll();
-    uint32_t reqId = 0;
+    std::string reqId;
     const int msgId = self->iot_->requestAttributes(req, reqId, 1);
-    ESP_LOGI(TAG, "desired request msg_id=%d id=%lu",
-             msgId, static_cast<unsigned long>(reqId));
+    ESP_LOGI(TAG, "desired request msg_id=%d id=%s",
+             msgId, reqId.c_str());
 }
 
 void DeviceInfo::onAttrUpdate(const AttributeUpdate& upd, void* /*ctx*/)
@@ -130,8 +130,8 @@ void DeviceInfo::onAttrResponse(const AttributeResponse& res, void* /*ctx*/)
 {
     auto parsed = parseAttributeResponse(
         std::string_view(res.payload.c_str(), res.payload.size()));
-    ESP_LOGI(TAG, "attr response id=%lu reported=%s desired=%s",
-             static_cast<unsigned long>(res.requestId),
+    ESP_LOGI(TAG, "attr response id=%s reported=%s desired=%s",
+             res.requestId.c_str(),
              parsed.reportedJson.c_str(),
              parsed.desiredJson.c_str());
 }
