@@ -16,6 +16,8 @@ on:
       - master
       - "release*"
       - "release/**"
+    tags:
+      - "v*"
   pull_request:
   workflow_dispatch:
 
@@ -129,5 +131,90 @@ jobs:
           name: gh-firmware-ota-${{ env.IDF_TARGET }}
           path: |
             build/*.bin
+            build/bootloader/bootloader.bin
+            build/partition_table/partition-table.bin
             build/flasher_args.json
           if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: [firmware, firmware-ota]
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # нужен для git log между тегами
+
+      - name: Download firmware artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: gh-firmware-${{ env.IDF_TARGET }}
+          path: dl/fw
+
+      - name: Download OTA firmware artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: gh-firmware-ota-${{ env.IDF_TARGET }}
+          path: dl/ota
+
+      - name: Assemble release assets
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          mkdir -p dist
+
+          # Factory/USB-прошивка (стандартная partition table)
+          cp "$(find dl/fw -name embed-framework.bin | head -1)"   dist/embed-framework.bin
+          cp "$(find dl/fw -name bootloader.bin | head -1)"         dist/bootloader.bin
+          cp "$(find dl/fw -name partition-table.bin | head -1)"    dist/partition-table.bin
+          cp "$(find dl/fw -name flasher_args.json | head -1)"      dist/flasher_args.json
+
+          # OTA-образ: app, собранный с partitions_ota.csv
+          cp "$(find dl/ota -name embed-framework.bin | head -1)"   dist/embed-framework-ota.bin
+
+          tar -C dist -cjf "dist/embed-framework-${TAG}-flash.tar.bz2" \
+            bootloader.bin partition-table.bin embed-framework.bin flasher_args.json
+          tar -C dist -cjf "dist/embed-framework-${TAG}-ota.tar.bz2" \
+            bootloader.bin partition-table.bin embed-framework-ota.bin
+          ls -la dist
+
+      - name: Build release notes
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          PREV_TAG="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)"
+          if [ -n "${PREV_TAG}" ]; then
+            CHANGES="$(git log --no-merges --pretty='- %s (%h)' "${PREV_TAG}..${TAG}")"
+            COMPARE="https://github.com/${GITHUB_REPOSITORY}/compare/${PREV_TAG}...${TAG}"
+          else
+            CHANGES="$(git log --no-merges --pretty='- %s (%h)' -50)"
+            COMPARE=""
+          fi
+          {
+            echo "## embed-framework ${TAG}"
+            echo
+            echo "### Изменения"
+            echo "${CHANGES:-— список изменений пуст}"
+            echo
+            echo "### Артефакты"
+            echo "- \`embed-framework-${TAG}-flash.tar.bz2\` — bootloader + partition-table + app + flasher_args для первичной USB-прошивки"
+            echo "- \`embed-framework-ota.bin\` / \`embed-framework-${TAG}-ota.tar.bz2\` — образ для OTA-обновления (partitions_ota.csv)"
+            if [ -n "${COMPARE}" ]; then
+              echo
+              echo "[Полный список изменений](${COMPARE})"
+            fi
+          } > NOTES.md
+          cat NOTES.md
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: embed-framework ${{ github.ref_name }}
+          body_path: NOTES.md
+          files: dist/*
+          fail_on_unmatched_files: true
