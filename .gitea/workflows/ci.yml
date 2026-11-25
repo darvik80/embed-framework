@@ -36,6 +36,8 @@ jobs:
           sudo apt-get install -y -qq cmake g++ git
 
       - name: Configure & build
+        env:
+          CMAKE_POLICY_VERSION_MINIMUM: "3.5"
         run: |
           cmake -S host_test -B host_test/build -DCMAKE_BUILD_TYPE=Debug
           cmake --build host_test/build -j"$(nproc)"
