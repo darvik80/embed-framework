@@ -211,29 +211,3 @@ jobs:
             fi
           } > NOTES.md
           cat NOTES.md
-
-      - name: Create release
-        env:
-          TAG: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          JSON="$(python3 -c 'import json,sys; print(json.dumps({"tag_name": sys.argv[1], "name": "embed-framework "+sys.argv[1], "body": open("NOTES.md").read()}))' "${TAG}")"
-          curl -fsS -X POST "${API}/releases" \
-            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d "${JSON}" > release.json
-          cat release.json
-
-      - name: Upload release assets
-        run: |
-          set -euo pipefail
-          RELEASE_ID="$(python3 -c 'import json; print(json.load(open("release.json"))["id"])')"
-          shopt -s nullglob
-          for f in dist/*; do
-            name="$(basename "$f")"
-            curl -fsS -X POST "${API}/releases/${RELEASE_ID}/assets?name=${name}" \
-              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-              -H "Content-Type: application/octet-stream" \
-              --data-binary "@${f}" > /dev/null
-            echo "uploaded: ${name}"
-          done
